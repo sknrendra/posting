@@ -102,6 +102,7 @@ def submit_statement_balance(
     period_end: date,
     account_id: int,
     statement_balance,
+    user: User,
 ) -> Reconciliation:
     _ensure_period_closed(period_end)
     recon = _find(db, period_type, period_start, period_end, account_id)
@@ -115,10 +116,12 @@ def submit_statement_balance(
             account_id=account_id,
             statement_balance=statement_balance,
             status="open",
+            submitted_by_user_id=user.id,
         )
         db.add(recon)
     else:
         recon.statement_balance = statement_balance
+        recon.submitted_by_user_id = user.id
     db.commit()
     return recon
 

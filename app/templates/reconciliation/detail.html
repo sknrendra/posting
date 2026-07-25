@@ -44,6 +44,9 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
           <button type="submit" class="rounded-md bg-primary text-primary-foreground px-2 py-1 ml-2 hover:bg-primary/90">Confirm</button>
         </form>
+        {% if row.reconciliation.submitted_by_user %}
+        <p class="text-xs text-muted-foreground mt-1">entered by {{ row.reconciliation.submitted_by_user.email }}</p>
+        {% endif %}
         {% endif %}
         {% else %}
         <span class="text-muted-foreground">Reconciled {{ row.reconciliation.reconciled_at.date() }}</span>

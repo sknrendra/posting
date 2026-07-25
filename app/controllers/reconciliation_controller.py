@@ -96,7 +96,7 @@ async def submit_statement_balance(
         )
     try:
         reconciliation_service.submit_statement_balance(
-            db, period_type, start, end, account_id, statement_balance
+            db, period_type, start, end, account_id, statement_balance, current_user
         )
     except ReconciliationError as exc:
         return RedirectResponse(

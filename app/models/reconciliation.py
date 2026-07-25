@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SQLiteDecimal, TimestampMixin
 
@@ -30,5 +30,8 @@ class Reconciliation(Base, TimestampMixin):
     book_balance: Mapped[Decimal | None] = mapped_column(SQLiteDecimal(2), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
     notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    submitted_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     reconciled_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     reconciled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    submitted_by_user: Mapped["User"] = relationship(foreign_keys=[submitted_by_user_id])
