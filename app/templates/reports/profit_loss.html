@@ -5,42 +5,42 @@
   <h1 class="text-2xl font-semibold">Profit &amp; Loss</h1>
   <a href="/reports" class="text-sm underline">Back to reports</a>
 </div>
-<p class="text-black/60 mb-6 capitalize">{{ period_type }} — {{ period_start }} – {{ period_end }} · generated {{ report.generated_at }}</p>
+<p class="text-muted-foreground mb-6 capitalize">{{ period_type }} — {{ period_start }} – {{ period_end }} · generated {{ report.generated_at }}</p>
 
-<table class="w-full text-sm border border-black/10 mb-6">
+<table class="w-full text-sm rounded-lg border border-border overflow-hidden mb-6">
   <thead>
-    <tr class="border-b border-black/10 text-left text-black/60">
+    <tr class="border-b border-border text-left text-muted-foreground">
       <th class="px-3 py-2 font-medium">Account</th>
       <th class="px-3 py-2 font-medium text-right">Amount</th>
     </tr>
   </thead>
   <tbody>
-    <tr class="bg-black/5"><td class="px-3 py-2 font-medium" colspan="2">Revenue</td></tr>
+    <tr class="bg-muted"><td class="px-3 py-2 font-medium" colspan="2">Revenue</td></tr>
     {% for row in data.revenue %}
-    <tr class="border-b border-black/5">
+    <tr class="border-b border-border">
       <td class="px-3 py-2">{{ row.account_code }} — {{ row.account_name }}</td>
       <td class="px-3 py-2 text-right font-mono">{{ row.amount }}</td>
     </tr>
     {% endfor %}
-    <tr class="border-t border-black/20 font-medium">
+    <tr class="border-t border-border font-medium">
       <td class="px-3 py-2">Total Revenue</td>
       <td class="px-3 py-2 text-right font-mono">{{ data.total_revenue }}</td>
     </tr>
 
-    <tr class="bg-black/5"><td class="px-3 py-2 font-medium" colspan="2">Expenses</td></tr>
+    <tr class="bg-muted"><td class="px-3 py-2 font-medium" colspan="2">Expenses</td></tr>
     {% for row in data.expenses %}
-    <tr class="border-b border-black/5">
+    <tr class="border-b border-border">
       <td class="px-3 py-2">{{ row.account_code }} — {{ row.account_name }}</td>
       <td class="px-3 py-2 text-right font-mono">{{ row.amount }}</td>
     </tr>
     {% endfor %}
-    <tr class="border-t border-black/20 font-medium">
+    <tr class="border-t border-border font-medium">
       <td class="px-3 py-2">Total Expenses</td>
       <td class="px-3 py-2 text-right font-mono">{{ data.total_expenses }}</td>
     </tr>
   </tbody>
   <tfoot>
-    <tr class="border-t-2 border-black font-medium text-base">
+    <tr class="border-t-2 border-foreground/20 font-medium text-base">
       <td class="px-3 py-2">Net Income</td>
       <td class="px-3 py-2 text-right font-mono">{{ data.net_income }}</td>
     </tr>

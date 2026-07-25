@@ -35,8 +35,18 @@ def get_activity_range(db: DbSession) -> tuple[date, date]:
 
 
 def list_periods(db: DbSession, period_type: str) -> list[tuple[date, date]]:
+    """Only periods that have fully closed (period_end already in the past) are
+    reconcilable — there's no statement balance to check against, and the book
+    balance is still moving, for a period that hasn't ended yet."""
     earliest, latest = get_activity_range(db)
-    return period_utils.list_periods(period_type, earliest, latest)
+    periods = period_utils.list_periods(period_type, earliest, latest)
+    today = date.today()
+    return [(start, end) for start, end in periods if end < today]
+
+
+def _ensure_period_closed(period_end: date) -> None:
+    if period_end >= date.today():
+        raise ReconciliationError("This period hasn't closed yet and cannot be reconciled")
 
 
 def _find(db: DbSession, period_type: str, period_start: date, period_end: date, account_id: int):
@@ -93,6 +103,7 @@ def submit_statement_balance(
     account_id: int,
     statement_balance,
 ) -> Reconciliation:
+    _ensure_period_closed(period_end)
     recon = _find(db, period_type, period_start, period_end, account_id)
     if recon and recon.status == "completed":
         raise ReconciliationError("This account is already reconciled for this period")
@@ -115,6 +126,7 @@ def submit_statement_balance(
 def confirm_reconciliation(
     db: DbSession, period_type: str, period_start: date, period_end: date, account_id: int, user: User
 ) -> Reconciliation:
+    _ensure_period_closed(period_end)
     recon = _find(db, period_type, period_start, period_end, account_id)
     if not recon:
         raise ReconciliationError("Enter a statement balance before confirming")

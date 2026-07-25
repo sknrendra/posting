@@ -4,9 +4,9 @@
 <h1 class="text-2xl font-semibold mb-6">General Ledger</h1>
 <div class="max-w-md space-y-1">
   {% for account in accounts %}
-  <a href="/ledger/{{ account.id }}" class="flex justify-between rounded px-3 py-2 hover:bg-black/5 border border-black/10">
-    <span><span class="font-mono text-black/50">{{ account.code }}</span> {{ account.name }}</span>
-    <span class="text-black/40 capitalize">{{ account.account_type }}</span>
+  <a href="/ledger/{{ account.id }}" class="flex justify-between rounded-md px-3 py-2 hover:bg-accent hover:text-accent-foreground border border-border">
+    <span><span class="font-mono text-muted-foreground">{{ account.code }}</span> {{ account.name }}</span>
+    <span class="text-muted-foreground capitalize">{{ account.account_type }}</span>
   </a>
   {% endfor %}
 </div>

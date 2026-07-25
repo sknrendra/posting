@@ -3,18 +3,18 @@
 {% block content %}
 <h1 class="text-2xl font-semibold mb-6">Reconciliation</h1>
 
-<div class="flex gap-2 mb-6 border-b border-black/10">
+<div class="flex gap-2 mb-6 border-b border-border">
   {% for t in period_types %}
   <a href="/reconciliation?period_type={{ t }}"
-     class="px-3 py-2 text-sm capitalize border-b-2 {% if t == period_type %}border-black font-medium{% else %}border-transparent text-black/50 hover:text-black{% endif %}">
+     class="px-3 py-2 text-sm capitalize border-b-2 {% if t == period_type %}border-foreground font-medium{% else %}border-transparent text-muted-foreground hover:text-foreground{% endif %}">
     {{ t }}
   </a>
   {% endfor %}
 </div>
 
-<table class="w-full text-sm border border-black/10">
+<table class="w-full text-sm rounded-lg border border-border overflow-hidden">
   <thead>
-    <tr class="border-b border-black/10 text-left text-black/60">
+    <tr class="border-b border-border text-left text-muted-foreground">
       <th class="px-3 py-2 font-medium">Period</th>
       <th class="px-3 py-2 font-medium">Status</th>
       <th class="px-3 py-2 font-medium"></th>
@@ -22,7 +22,7 @@
   </thead>
   <tbody>
     {% for row in period_rows %}
-    <tr class="border-b border-black/5">
+    <tr class="border-b border-border">
       <td class="px-3 py-2">{{ row.period_start }} – {{ row.period_end }}</td>
       <td class="px-3 py-2">
         {% if row.status.is_complete %}Completed

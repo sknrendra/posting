@@ -7,20 +7,20 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
   <div class="flex-1">
     <label class="block text-sm font-medium mb-1" for="email">Email</label>
-    <input class="w-full rounded border border-black/20 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
+    <input class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
            type="email" id="email" name="email" required />
   </div>
   <div class="flex-1">
     <label class="block text-sm font-medium mb-1" for="password">Password</label>
-    <input class="w-full rounded border border-black/20 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
+    <input class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
            type="password" id="password" name="password" minlength="8" required />
   </div>
-  <button type="submit" class="rounded bg-black text-white px-4 py-2 text-sm font-medium hover:bg-black/80">Create</button>
+  <button type="submit" class="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Create</button>
 </form>
 
-<table class="w-full text-sm border border-black/10">
+<table class="w-full text-sm rounded-lg border border-border overflow-hidden">
   <thead>
-    <tr class="border-b border-black/10 text-left text-black/60">
+    <tr class="border-b border-border text-left text-muted-foreground">
       <th class="px-3 py-2 font-medium">Email</th>
       <th class="px-3 py-2 font-medium">Status</th>
       <th class="px-3 py-2 font-medium"></th>
@@ -28,8 +28,8 @@
   </thead>
   <tbody>
     {% for user in users %}
-    <tr class="border-b border-black/5 {% if not user.is_active %}text-black/40{% endif %}">
-      <td class="px-3 py-2">{{ user.email }}{% if user.id == current_user.id %} <span class="text-black/40">(you)</span>{% endif %}</td>
+    <tr class="border-b border-border {% if not user.is_active %}text-muted-foreground{% endif %}">
+      <td class="px-3 py-2">{{ user.email }}{% if user.id == current_user.id %} <span class="text-muted-foreground">(you)</span>{% endif %}</td>
       <td class="px-3 py-2">{% if user.is_active %}Active{% else %}Inactive{% endif %}</td>
       <td class="px-3 py-2 text-right">
         {% if user.id != current_user.id %}

@@ -5,9 +5,9 @@
 
 {% for period_type in period_types %}
 <h2 class="text-lg font-medium mb-3 capitalize">{{ period_type }}</h2>
-<table class="w-full text-sm border border-black/10 mb-8">
+<table class="w-full text-sm rounded-lg border border-border overflow-hidden mb-8">
   <thead>
-    <tr class="border-b border-black/10 text-left text-black/60">
+    <tr class="border-b border-border text-left text-muted-foreground">
       <th class="px-3 py-2 font-medium">Period</th>
       <th class="px-3 py-2 font-medium">Reconciliation</th>
       <th class="px-3 py-2 font-medium">Reports</th>
@@ -16,7 +16,7 @@
   </thead>
   <tbody>
     {% for row in tables[period_type] %}
-    <tr class="border-b border-black/5">
+    <tr class="border-b border-border">
       <td class="px-3 py-2">{{ row.period_start }} – {{ row.period_end }}</td>
       <td class="px-3 py-2">{% if row.reconciliation_complete %}Complete{% else %}Incomplete{% endif %}</td>
       <td class="px-3 py-2">
@@ -25,7 +25,7 @@
         <a class="underline mr-2" href="/reports/{{ rt }}/{{ period_type }}/{{ row.period_start }}">{{ rt.replace('_', ' ')|title }}</a>
         {% endfor %}
         {% else %}
-        <span class="text-black/40">Not generated</span>
+        <span class="text-muted-foreground">Not generated</span>
         {% endif %}
       </td>
       <td class="px-3 py-2 text-right">
@@ -34,17 +34,17 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
           <input type="hidden" name="period_type" value="{{ period_type }}" />
           <input type="hidden" name="period_start" value="{{ row.period_start }}" />
-          <button type="submit" class="rounded bg-black text-white px-3 py-1.5 text-sm hover:bg-black/80">
+          <button type="submit" class="rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm hover:bg-primary/90">
             {{ 'Regenerate Reports' if row.has_reports else 'Generate Reports' }}
           </button>
         </form>
         {% else %}
-        <span class="text-black/40 text-sm">Reconciliation incomplete</span>
+        <span class="text-muted-foreground text-sm">Reconciliation incomplete</span>
         {% endif %}
       </td>
     </tr>
     {% else %}
-    <tr><td class="px-3 py-2 text-black/40" colspan="4">No periods yet.</td></tr>
+    <tr><td class="px-3 py-2 text-muted-foreground" colspan="4">No periods yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
