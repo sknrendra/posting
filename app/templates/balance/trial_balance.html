@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block title %}Trial Balance — Posting{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">Trial Balance</h1>
+
+<form method="get" class="flex items-end gap-3 mb-6">
+  <div>
+    <label class="block text-sm font-medium mb-1" for="as_of">As of</label>
+    <input class="rounded border border-black/20 px-3 py-1.5" type="date" id="as_of" name="as_of" value="{{ as_of }}" />
+  </div>
+  <button type="submit" class="rounded border border-black/20 px-3 py-1.5 text-sm hover:bg-black/5">View</button>
+</form>
+
+<table class="w-full text-sm border border-black/10">
+  <thead>
+    <tr class="border-b border-black/10 text-left text-black/60">
+      <th class="px-3 py-2 font-medium">Code</th>
+      <th class="px-3 py-2 font-medium">Account</th>
+      <th class="px-3 py-2 font-medium text-right">Debit</th>
+      <th class="px-3 py-2 font-medium text-right">Credit</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr class="border-b border-black/5">
+      <td class="px-3 py-2 font-mono">{{ row.account.code }}</td>
+      <td class="px-3 py-2"><a class="underline" href="/ledger/{{ row.account.id }}">{{ row.account.name }}</a></td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(row.debit) if row.debit else "" }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(row.credit) if row.credit else "" }}</td>
+    </tr>
+    {% else %}
+    <tr><td class="px-3 py-2 text-black/40" colspan="4">No activity as of this date.</td></tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="border-t border-black font-medium">
+      <td class="px-3 py-2" colspan="2">Total</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(total_debit) }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(total_credit) }}</td>
+    </tr>
+  </tfoot>
+</table>
+<p class="mt-3 text-sm {% if balanced %}text-black/50{% else %}text-black font-medium{% endif %}">
+  {% if balanced %}Trial balance is balanced.{% else %}Trial balance does NOT balance — this indicates a data integrity bug.{% endif %}
+</p>
+{% endblock %}

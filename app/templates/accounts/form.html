@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+{% block title %}{{ 'Edit Account' if account else 'New Account' }} — Posting{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">{{ 'Edit Account' if account else 'New Account' }}</h1>
+<form method="post" action="{{ '/accounts/' ~ account.id ~ '/edit' if account else '/accounts/new' }}" class="max-w-md space-y-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <div>
+    <label class="block text-sm font-medium mb-1" for="code">Code</label>
+    {% if account %}
+    <input class="w-full rounded border border-black/20 px-3 py-2 bg-black/5" type="text" value="{{ account.code }}" disabled />
+    {% else %}
+    <input class="w-full rounded border border-black/20 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black" type="text" id="code" name="code" required />
+    {% endif %}
+  </div>
+  <div>
+    <label class="block text-sm font-medium mb-1" for="name">Name</label>
+    <input class="w-full rounded border border-black/20 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
+           type="text" id="name" name="name" value="{{ account.name if account else '' }}" required />
+  </div>
+  <div>
+    <label class="block text-sm font-medium mb-1" for="account_type">Type</label>
+    {% if account %}
+    <input class="w-full rounded border border-black/20 px-3 py-2 bg-black/5 capitalize" type="text" value="{{ account.account_type }}" disabled />
+    {% else %}
+    <select class="w-full rounded border border-black/20 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black" id="account_type" name="account_type" required>
+      {% for t in account_types %}
+      <option value="{{ t }}" class="capitalize">{{ t|capitalize }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+  </div>
+  <div>
+    <label class="block text-sm font-medium mb-1" for="description">Description</label>
+    <textarea class="w-full rounded border border-black/20 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
+              id="description" name="description" rows="2">{{ account.description if account else '' }}</textarea>
+  </div>
+  <div class="flex items-center gap-2">
+    <input type="checkbox" id="is_cash_account" name="is_cash_account" value="true"
+           {% if account and account.is_cash_account %}checked{% endif %} />
+    <label for="is_cash_account" class="text-sm">This is a reconciled cash account (Cash on Hand / Payment Gateway / Bank Account)</label>
+  </div>
+  <div class="flex gap-3">
+    <button type="submit" class="rounded bg-black text-white px-4 py-2 text-sm font-medium hover:bg-black/80">
+      {{ 'Save' if account else 'Create Account' }}
+    </button>
+    <a href="/accounts" class="rounded border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/5">Cancel</a>
+  </div>
+</form>
+{% endblock %}

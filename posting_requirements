@@ -1,0 +1,149 @@
+Posting: a small, lightweight internal bookkeeping app
+
+Business Use
+
+I want my own accounting software for a small saas app i am going to launch. It is currently a one man person job, a side project, service business where i work like an escrow bridging psychological counseling providers and their clients. Financial transactions that happens inside my app include:
+
+
+
+
+
+Client orders a session: Money in
+
+
+
+Session canceled or rejected: Money refunded
+
+
+
+Session completed: Money forwarded to psychologists. (Actual money still inside payment gateway, but provider's wallet got increased, app's wallet decreased)
+
+
+
+Provider pulls payouts.
+
+And financial transaction that happens outside the app include:
+
+
+
+
+
+Purchases like server rents and AI subscriptions
+
+And finally there would be monthly reconciliation for accounts
+
+
+
+
+
+Cash on Hand
+
+
+
+Payment Gateway
+
+
+
+Bank Account
+
+Once transactions are reconciled the three financial reports can be generated.
+
+Basic Concepts and Pillars
+
+Under the hood, the generic accounting building blocks must be supported:
+
+
+
+
+
+General ledger
+
+
+
+Chart of accounts
+
+
+
+Double-entry bookkeeping
+
+
+
+Journal entries
+
+
+
+Trial balance
+
+
+
+Financial statements
+
+
+
+
+
+Profit & Loss
+
+
+
+Balance Sheet
+
+
+
+Cash Flow Statement
+
+Human and System Interfaces
+
+Bridging to the accounting concepts are Human and System Interfaces that would convert easy to use, human or system friendly entries into proper financial entries.
+
+There would be:
+
+
+
+
+
+Transactions:
+
+
+
+
+
+Journal Entries: This is where entries are created.
+
+
+
+Ledger & Accounts: General Ledger & Creating Accounts go here.
+
+
+
+Balance: contains Trial Balance
+
+
+
+Reconciliation: monthly, quarterly and annual
+
+
+
+Reports: contains three financial records, grouped in three tables: monthly, quarterly and annual. Once a reconciliation for a period is completed, a button "generate reports" would be enabled. this button is placed where the table it belongs (generate monthly reports" should belong in monthly report table etc)
+
+
+
+Settings
+
+
+
+
+
+User management, changing passwords belongs here.
+
+
+
+API key creation goes here.
+
+For the system interfaces, there would be an API webhook that enables system to make journal entries. Therefore the need for that API Key creation in settings.
+
+Technologies
+
+To support the requirement we will utilize Python's FastAPI that primarily returns a view. We can use any templating engine but we need to use AlpineJS and Tailwind v4. Database is going to be SQLite. ORMs or direct query writers are fine. Pick your own. Deployment is going to be with Docker Compose.
+
+Contain business logic inside services. Controllers call services, services call models. no db calls inside controllers.

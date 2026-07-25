@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block title %}Journal Entry #{{ entry.id }} — Posting{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-1">Journal Entry #{{ entry.id }}</h1>
+<p class="text-black/60 mb-6">{{ entry.entry_date }} — {{ entry.memo }} ({{ entry.source }})</p>
+<table class="w-full text-sm border border-black/10">
+  <thead>
+    <tr class="border-b border-black/10 text-left text-black/60">
+      <th class="px-3 py-2 font-medium">Account</th>
+      <th class="px-3 py-2 font-medium">Memo</th>
+      <th class="px-3 py-2 font-medium text-right">Debit</th>
+      <th class="px-3 py-2 font-medium text-right">Credit</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in entry.lines %}
+    <tr class="border-b border-black/5">
+      <td class="px-3 py-2">{{ line.account.code }} — {{ line.account.name }}</td>
+      <td class="px-3 py-2">{{ line.memo or "" }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(line.debit_amount) if line.debit_amount else "" }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(line.credit_amount) if line.credit_amount else "" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="border-t border-black font-medium">
+      <td class="px-3 py-2" colspan="2">Total</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(entry.lines|sum(attribute="debit_amount")) }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(entry.lines|sum(attribute="credit_amount")) }}</td>
+    </tr>
+  </tfoot>
+</table>
+{% endblock %}

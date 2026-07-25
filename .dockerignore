@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+data/
+uvicorn.log
+.git/
+.gitignore
+.env
+posting_requirements

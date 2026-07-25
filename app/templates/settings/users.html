@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block title %}Users — Posting{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">Users</h1>
+
+<form method="post" action="/settings/users" class="flex items-end gap-3 mb-8 max-w-lg">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <div class="flex-1">
+    <label class="block text-sm font-medium mb-1" for="email">Email</label>
+    <input class="w-full rounded border border-black/20 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
+           type="email" id="email" name="email" required />
+  </div>
+  <div class="flex-1">
+    <label class="block text-sm font-medium mb-1" for="password">Password</label>
+    <input class="w-full rounded border border-black/20 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
+           type="password" id="password" name="password" minlength="8" required />
+  </div>
+  <button type="submit" class="rounded bg-black text-white px-4 py-2 text-sm font-medium hover:bg-black/80">Create</button>
+</form>
+
+<table class="w-full text-sm border border-black/10">
+  <thead>
+    <tr class="border-b border-black/10 text-left text-black/60">
+      <th class="px-3 py-2 font-medium">Email</th>
+      <th class="px-3 py-2 font-medium">Status</th>
+      <th class="px-3 py-2 font-medium"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for user in users %}
+    <tr class="border-b border-black/5 {% if not user.is_active %}text-black/40{% endif %}">
+      <td class="px-3 py-2">{{ user.email }}{% if user.id == current_user.id %} <span class="text-black/40">(you)</span>{% endif %}</td>
+      <td class="px-3 py-2">{% if user.is_active %}Active{% else %}Inactive{% endif %}</td>
+      <td class="px-3 py-2 text-right">
+        {% if user.id != current_user.id %}
+        <form method="post" action="/settings/users/{{ user.id }}/{{ 'deactivate' if user.is_active else 'activate' }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <button type="submit" class="underline">{{ 'Deactivate' if user.is_active else 'Activate' }}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

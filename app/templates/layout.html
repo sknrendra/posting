@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Posting{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+  <script defer src="/static/vendor/alpine.min.js"></script>
+</head>
+<body class="h-full bg-white text-black antialiased">
+  {% if current_user %}
+  <div class="min-h-full flex">
+    <aside class="w-56 shrink-0 border-r border-black/10 bg-white">
+      <div class="h-16 flex items-center px-5 border-b border-black/10">
+        <span class="font-semibold tracking-tight text-lg">Posting</span>
+      </div>
+      <nav class="p-3 space-y-6 text-sm">
+        <div>
+          <p class="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-black/40">Transactions</p>
+          <a href="/journal-entries" class="block rounded px-2 py-1.5 hover:bg-black/5">Journal Entries</a>
+          <a href="/accounts" class="block rounded px-2 py-1.5 hover:bg-black/5">Chart of Accounts</a>
+          <a href="/ledger" class="block rounded px-2 py-1.5 hover:bg-black/5">General Ledger</a>
+        </div>
+        <div>
+          <p class="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-black/40">Balance</p>
+          <a href="/balance/trial-balance" class="block rounded px-2 py-1.5 hover:bg-black/5">Trial Balance</a>
+        </div>
+        <div>
+          <p class="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-black/40">Reconciliation</p>
+          <a href="/reconciliation" class="block rounded px-2 py-1.5 hover:bg-black/5">Reconciliation</a>
+        </div>
+        <div>
+          <p class="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-black/40">Reports</p>
+          <a href="/reports" class="block rounded px-2 py-1.5 hover:bg-black/5">Reports</a>
+        </div>
+        <div>
+          <p class="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-black/40">Settings</p>
+          <a href="/settings/users" class="block rounded px-2 py-1.5 hover:bg-black/5">Users</a>
+          <a href="/settings/password" class="block rounded px-2 py-1.5 hover:bg-black/5">Password</a>
+          <a href="/settings/api-keys" class="block rounded px-2 py-1.5 hover:bg-black/5">API Keys</a>
+        </div>
+      </nav>
+    </aside>
+    <div class="flex-1 flex flex-col min-w-0">
+      <header class="h-16 border-b border-black/10 flex items-center justify-between px-6">
+        <div></div>
+        <div class="flex items-center gap-4 text-sm">
+          <span class="text-black/60">{{ current_user.email }}</span>
+          <form method="post" action="/logout">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <button type="submit" class="rounded border border-black/20 px-3 py-1.5 hover:bg-black/5">Log out</button>
+          </form>
+        </div>
+      </header>
+      <main class="flex-1 p-6">
+        {% include "partials/flash.html" %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  {% else %}
+  <main class="min-h-full flex items-center justify-center p-6">
+    {% include "partials/flash.html" %}
+    {% block guest_content %}{% endblock %}
+  </main>
+  {% endif %}
+</body>
+</html>

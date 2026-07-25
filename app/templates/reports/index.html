@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+{% block title %}Reports — Posting{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">Reports</h1>
+
+{% for period_type in period_types %}
+<h2 class="text-lg font-medium mb-3 capitalize">{{ period_type }}</h2>
+<table class="w-full text-sm border border-black/10 mb-8">
+  <thead>
+    <tr class="border-b border-black/10 text-left text-black/60">
+      <th class="px-3 py-2 font-medium">Period</th>
+      <th class="px-3 py-2 font-medium">Reconciliation</th>
+      <th class="px-3 py-2 font-medium">Reports</th>
+      <th class="px-3 py-2 font-medium"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in tables[period_type] %}
+    <tr class="border-b border-black/5">
+      <td class="px-3 py-2">{{ row.period_start }} – {{ row.period_end }}</td>
+      <td class="px-3 py-2">{% if row.reconciliation_complete %}Complete{% else %}Incomplete{% endif %}</td>
+      <td class="px-3 py-2">
+        {% if row.has_reports %}
+        {% for rt in report_types %}
+        <a class="underline mr-2" href="/reports/{{ rt }}/{{ period_type }}/{{ row.period_start }}">{{ rt.replace('_', ' ')|title }}</a>
+        {% endfor %}
+        {% else %}
+        <span class="text-black/40">Not generated</span>
+        {% endif %}
+      </td>
+      <td class="px-3 py-2 text-right">
+        {% if row.reconciliation_complete %}
+        <form method="post" action="/reports/generate" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <input type="hidden" name="period_type" value="{{ period_type }}" />
+          <input type="hidden" name="period_start" value="{{ row.period_start }}" />
+          <button type="submit" class="rounded bg-black text-white px-3 py-1.5 text-sm hover:bg-black/80">
+            {{ 'Regenerate Reports' if row.has_reports else 'Generate Reports' }}
+          </button>
+        </form>
+        {% else %}
+        <span class="text-black/40 text-sm">Reconciliation incomplete</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td class="px-3 py-2 text-black/40" colspan="4">No periods yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endfor %}
+{% endblock %}

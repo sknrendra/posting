@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block title %}Cash Flow — Posting{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-2xl font-semibold">Cash Flow</h1>
+  <a href="/reports" class="text-sm underline">Back to reports</a>
+</div>
+<p class="text-black/60 mb-6 capitalize">{{ period_type }} — {{ period_start }} – {{ period_end }} · generated {{ report.generated_at }}</p>
+<p class="text-black/50 text-sm mb-6">Net change method: shows the net change in each cash account during the period, broken down by the offsetting account.</p>
+
+{% for account in data.accounts %}
+<table class="w-full text-sm border border-black/10 mb-6">
+  <thead>
+    <tr class="border-b border-black/10 text-left text-black/60">
+      <th class="px-3 py-2 font-medium" colspan="2">{{ account.account_code }} — {{ account.account_name }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="border-b border-black/5 text-black/50">
+      <td class="px-3 py-2">Opening balance</td>
+      <td class="px-3 py-2 text-right font-mono">{{ account.opening_balance }}</td>
+    </tr>
+    {% for row in account.breakdown %}
+    <tr class="border-b border-black/5">
+      <td class="px-3 py-2">{{ row.account_code }} — {{ row.account_name }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ row.amount }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="border-t border-black/20 font-medium">
+      <td class="px-3 py-2">Net change</td>
+      <td class="px-3 py-2 text-right font-mono">{{ account.net_change }}</td>
+    </tr>
+    <tr class="text-black/50">
+      <td class="px-3 py-2">Closing balance</td>
+      <td class="px-3 py-2 text-right font-mono">{{ account.closing_balance }}</td>
+    </tr>
+  </tbody>
+</table>
+{% endfor %}
+
+<p class="text-sm font-medium">Total net change across cash accounts: <span class="font-mono">{{ data.total_net_change }}</span></p>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+{% block title %}Balance Sheet — Posting{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-2xl font-semibold">Balance Sheet</h1>
+  <a href="/reports" class="text-sm underline">Back to reports</a>
+</div>
+<p class="text-black/60 mb-6 capitalize">{{ period_type }} — as of {{ period_end }} · generated {{ report.generated_at }}</p>
+
+<table class="w-full text-sm border border-black/10 mb-3">
+  <thead>
+    <tr class="border-b border-black/10 text-left text-black/60">
+      <th class="px-3 py-2 font-medium">Account</th>
+      <th class="px-3 py-2 font-medium text-right">Amount</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="bg-black/5"><td class="px-3 py-2 font-medium" colspan="2">Assets</td></tr>
+    {% for row in data.assets %}
+    <tr class="border-b border-black/5">
+      <td class="px-3 py-2">{{ row.account_code }} — {{ row.account_name }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ row.amount }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="border-t border-black/20 font-medium">
+      <td class="px-3 py-2">Total Assets</td>
+      <td class="px-3 py-2 text-right font-mono">{{ data.total_assets }}</td>
+    </tr>
+
+    <tr class="bg-black/5"><td class="px-3 py-2 font-medium" colspan="2">Liabilities</td></tr>
+    {% for row in data.liabilities %}
+    <tr class="border-b border-black/5">
+      <td class="px-3 py-2">{{ row.account_code }} — {{ row.account_name }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ row.amount }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="border-t border-black/20 font-medium">
+      <td class="px-3 py-2">Total Liabilities</td>
+      <td class="px-3 py-2 text-right font-mono">{{ data.total_liabilities }}</td>
+    </tr>
+
+    <tr class="bg-black/5"><td class="px-3 py-2 font-medium" colspan="2">Equity</td></tr>
+    {% for row in data.equity %}
+    <tr class="border-b border-black/5">
+      <td class="px-3 py-2">{{ row.account_code }} — {{ row.account_name }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ row.amount }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="border-t border-black/20 font-medium">
+      <td class="px-3 py-2">Total Equity</td>
+      <td class="px-3 py-2 text-right font-mono">{{ data.total_equity }}</td>
+    </tr>
+  </tbody>
+</table>
+<p class="text-sm {% if data.balanced %}text-black/50{% else %}text-black font-medium{% endif %}">
+  {% if data.balanced %}Assets = Liabilities + Equity.{% else %}Balance sheet does NOT balance — this indicates a data integrity bug.{% endif %}
+</p>
+{% endblock %}

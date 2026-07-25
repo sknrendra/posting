@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+{% block title %}Reconciliation {{ period_start }} — Posting{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-2xl font-semibold capitalize">{{ period_type }} reconciliation</h1>
+  <a href="/reconciliation?period_type={{ period_type }}" class="text-sm underline">Back to periods</a>
+</div>
+<p class="text-black/60 mb-6">{{ period_start }} – {{ period_end }}</p>
+
+<table class="w-full text-sm border border-black/10">
+  <thead>
+    <tr class="border-b border-black/10 text-left text-black/60">
+      <th class="px-3 py-2 font-medium">Account</th>
+      <th class="px-3 py-2 font-medium text-right">Book Balance</th>
+      <th class="px-3 py-2 font-medium text-right">Statement Balance</th>
+      <th class="px-3 py-2 font-medium text-right">Difference</th>
+      <th class="px-3 py-2 font-medium">Status</th>
+      <th class="px-3 py-2 font-medium"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr class="border-b border-black/5">
+      <td class="px-3 py-2">{{ row.account.code }} — {{ row.account.name }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(row.book_balance) }}</td>
+      <td class="px-3 py-2 text-right font-mono">
+        {% if row.reconciliation %}{{ "%.2f"|format(row.reconciliation.statement_balance) }}{% else %}—{% endif %}
+      </td>
+      <td class="px-3 py-2 text-right font-mono">
+        {% if row.reconciliation %}{{ "%.2f"|format(row.reconciliation.statement_balance - row.book_balance) }}{% else %}—{% endif %}
+      </td>
+      <td class="px-3 py-2 capitalize">{{ row.status }}</td>
+      <td class="px-3 py-2 text-right whitespace-nowrap">
+        {% if row.status != "completed" %}
+        <form method="post" action="/reconciliation/{{ period_type }}/{{ period_start }}/{{ row.account.id }}" class="inline-flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <input type="text" inputmode="decimal" name="statement_balance" placeholder="0.00"
+                 value="{{ row.reconciliation.statement_balance if row.reconciliation else '' }}"
+                 class="w-28 rounded border border-black/20 px-2 py-1 font-mono" />
+          <button type="submit" class="rounded border border-black/20 px-2 py-1 hover:bg-black/5">Save</button>
+        </form>
+        {% if row.reconciliation %}
+        <form method="post" action="/reconciliation/{{ period_type }}/{{ period_start }}/{{ row.account.id }}/confirm" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <button type="submit" class="rounded bg-black text-white px-2 py-1 ml-2 hover:bg-black/80">Confirm</button>
+        </form>
+        {% endif %}
+        {% else %}
+        <span class="text-black/40">Reconciled {{ row.reconciliation.reconciled_at.date() }}</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

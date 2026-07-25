@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+{% block title %}API Keys — Posting{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">API Keys</h1>
+
+{% if new_token %}
+<div class="mb-6 rounded border border-black bg-black text-white px-4 py-3 text-sm">
+  <p class="font-medium mb-1">New API key created — copy it now, it won't be shown again:</p>
+  <code class="block bg-white/10 rounded px-2 py-1 font-mono break-all">{{ new_token }}</code>
+</div>
+{% endif %}
+
+<form method="post" action="/settings/api-keys" class="flex items-end gap-3 mb-8 max-w-md">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <div class="flex-1">
+    <label class="block text-sm font-medium mb-1" for="name">Key name</label>
+    <input class="w-full rounded border border-black/20 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
+           type="text" id="name" name="name" placeholder="e.g. Production webhook" required />
+  </div>
+  <button type="submit" class="rounded bg-black text-white px-4 py-2 text-sm font-medium hover:bg-black/80">Create</button>
+</form>
+
+<table class="w-full text-sm border border-black/10">
+  <thead>
+    <tr class="border-b border-black/10 text-left text-black/60">
+      <th class="px-3 py-2 font-medium">Name</th>
+      <th class="px-3 py-2 font-medium">Prefix</th>
+      <th class="px-3 py-2 font-medium">Created</th>
+      <th class="px-3 py-2 font-medium">Last used</th>
+      <th class="px-3 py-2 font-medium">Status</th>
+      <th class="px-3 py-2 font-medium"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for key in api_keys %}
+    <tr class="border-b border-black/5 {% if key.revoked_at %}text-black/40{% endif %}">
+      <td class="px-3 py-2">{{ key.name }}</td>
+      <td class="px-3 py-2 font-mono">{{ key.key_prefix }}…</td>
+      <td class="px-3 py-2">{{ key.created_at.date() }}</td>
+      <td class="px-3 py-2">{{ key.last_used_at.date() if key.last_used_at else "never" }}</td>
+      <td class="px-3 py-2">{% if key.revoked_at %}Revoked{% else %}Active{% endif %}</td>
+      <td class="px-3 py-2 text-right">
+        {% if not key.revoked_at %}
+        <form method="post" action="/settings/api-keys/{{ key.id }}/revoke">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <button type="submit" class="underline">Revoke</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td class="px-3 py-2 text-black/40" colspan="6">No API keys yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

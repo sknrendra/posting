@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block title %}Ledger & Accounts — Posting{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-semibold">Chart of Accounts</h1>
+  <a href="/accounts/new" class="rounded bg-black text-white px-4 py-2 text-sm font-medium hover:bg-black/80">New Account</a>
+</div>
+<table class="w-full text-sm border border-black/10">
+  <thead>
+    <tr class="border-b border-black/10 text-left text-black/60">
+      <th class="px-3 py-2 font-medium">Code</th>
+      <th class="px-3 py-2 font-medium">Name</th>
+      <th class="px-3 py-2 font-medium">Type</th>
+      <th class="px-3 py-2 font-medium">Normal Balance</th>
+      <th class="px-3 py-2 font-medium">Cash Account</th>
+      <th class="px-3 py-2 font-medium">Status</th>
+      <th class="px-3 py-2 font-medium"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for account in accounts %}
+    <tr class="border-b border-black/5 {% if not account.is_active %}text-black/40{% endif %}">
+      <td class="px-3 py-2 font-mono">{{ account.code }}</td>
+      <td class="px-3 py-2">{{ account.name }}</td>
+      <td class="px-3 py-2 capitalize">{{ account.account_type }}</td>
+      <td class="px-3 py-2 capitalize">{{ account.normal_balance }}</td>
+      <td class="px-3 py-2">{% if account.is_cash_account %}Yes{% endif %}</td>
+      <td class="px-3 py-2">{% if account.is_active %}Active{% else %}Inactive{% endif %}</td>
+      <td class="px-3 py-2 text-right space-x-3 whitespace-nowrap">
+        <a href="/accounts/{{ account.id }}/edit" class="underline">Edit</a>
+        <form class="inline" method="post" action="/accounts/{{ account.id }}/{{ 'deactivate' if account.is_active else 'activate' }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <button type="submit" class="underline">{{ 'Deactivate' if account.is_active else 'Activate' }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

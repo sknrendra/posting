@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+{% block title %}New Journal Entry — Posting{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">New Journal Entry</h1>
+{% if error %}
+<div class="mb-4 rounded border border-black px-4 py-2 text-sm bg-black text-white">{{ error }}</div>
+{% endif %}
+<form method="post" action="/journal-entries/new"
+      x-data='{
+        rows: {{ rows|tojson }}
+      }'>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+  <div class="grid grid-cols-2 gap-4 max-w-xl mb-6">
+    <div>
+      <label class="block text-sm font-medium mb-1" for="entry_date">Date</label>
+      <input class="w-full rounded border border-black/20 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
+             type="date" id="entry_date" name="entry_date" value="{{ entry_date }}" required />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1" for="memo">Memo</label>
+      <input class="w-full rounded border border-black/20 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
+             type="text" id="memo" name="memo" value="{{ memo }}" required />
+    </div>
+  </div>
+
+  <table class="w-full text-sm border border-black/10 mb-3">
+    <thead>
+      <tr class="border-b border-black/10 text-left text-black/60">
+        <th class="px-3 py-2 font-medium w-64">Account</th>
+        <th class="px-3 py-2 font-medium w-40">Debit</th>
+        <th class="px-3 py-2 font-medium w-40">Credit</th>
+        <th class="px-3 py-2 font-medium">Memo</th>
+        <th class="px-3 py-2 font-medium w-10"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <template x-for="(row, index) in rows" :key="index">
+        <tr class="border-b border-black/5">
+          <td class="px-3 py-2">
+            <select class="w-full rounded border border-black/20 px-2 py-1.5" :name="'account_id'" x-model="row.account_id">
+              <option value=""></option>
+              {% for account in accounts %}
+              <option value="{{ account.id }}">{{ account.code }} — {{ account.name }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" inputmode="decimal" class="w-full rounded border border-black/20 px-2 py-1.5 font-mono"
+                   name="debit_amount" x-model="row.debit_amount" placeholder="0.00" />
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" inputmode="decimal" class="w-full rounded border border-black/20 px-2 py-1.5 font-mono"
+                   name="credit_amount" x-model="row.credit_amount" placeholder="0.00" />
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" class="w-full rounded border border-black/20 px-2 py-1.5"
+                   name="line_memo" x-model="row.memo" />
+          </td>
+          <td class="px-3 py-2 text-right">
+            <button type="button" class="text-black/40 hover:text-black" @click="rows.length > 2 && rows.splice(index, 1)">&times;</button>
+          </td>
+        </tr>
+      </template>
+    </tbody>
+  </table>
+
+  <button type="button" class="text-sm underline mb-6"
+          @click="rows.push({account_id: '', debit_amount: '', credit_amount: '', memo: ''})">
+    + Add line
+  </button>
+
+  <div class="flex gap-3">
+    <button type="submit" class="rounded bg-black text-white px-4 py-2 text-sm font-medium hover:bg-black/80">Post Entry</button>
+    <a href="/journal-entries" class="rounded border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/5">Cancel</a>
+  </div>
+</form>
+{% endblock %}

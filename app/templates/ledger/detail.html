@@ -1,0 +1,54 @@
+{% extends "layout.html" %}
+{% block title %}{{ account.name }} — Ledger — Posting{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-2xl font-semibold">{{ account.code }} — {{ account.name }}</h1>
+  <a href="/ledger" class="text-sm underline">All accounts</a>
+</div>
+<p class="text-black/60 mb-6 capitalize">{{ account.account_type }} · normal balance: {{ account.normal_balance }}</p>
+
+<form method="get" class="flex items-end gap-3 mb-6">
+  <div>
+    <label class="block text-sm font-medium mb-1" for="date_from">From</label>
+    <input class="rounded border border-black/20 px-3 py-1.5" type="date" id="date_from" name="date_from" value="{{ date_from }}" />
+  </div>
+  <div>
+    <label class="block text-sm font-medium mb-1" for="date_to">To</label>
+    <input class="rounded border border-black/20 px-3 py-1.5" type="date" id="date_to" name="date_to" value="{{ date_to }}" />
+  </div>
+  <button type="submit" class="rounded border border-black/20 px-3 py-1.5 text-sm hover:bg-black/5">Filter</button>
+</form>
+
+<table class="w-full text-sm border border-black/10">
+  <thead>
+    <tr class="border-b border-black/10 text-left text-black/60">
+      <th class="px-3 py-2 font-medium">Date</th>
+      <th class="px-3 py-2 font-medium">Memo</th>
+      <th class="px-3 py-2 font-medium text-right">Debit</th>
+      <th class="px-3 py-2 font-medium text-right">Credit</th>
+      <th class="px-3 py-2 font-medium text-right">Balance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="border-b border-black/5 text-black/50">
+      <td class="px-3 py-2" colspan="4">Opening balance</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(opening_balance) }}</td>
+    </tr>
+    {% for row in rows %}
+    <tr class="border-b border-black/5">
+      <td class="px-3 py-2"><a class="underline" href="/journal-entries/{{ row.line.journal_entry.id }}">{{ row.line.journal_entry.entry_date }}</a></td>
+      <td class="px-3 py-2">{{ row.line.journal_entry.memo }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(row.line.debit_amount) if row.line.debit_amount else "" }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(row.line.credit_amount) if row.line.credit_amount else "" }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(row.balance) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="border-t border-black font-medium">
+      <td class="px-3 py-2" colspan="4">Closing balance</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(closing_balance) }}</td>
+    </tr>
+  </tfoot>
+</table>
+{% endblock %}
