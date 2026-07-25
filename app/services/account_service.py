@@ -84,4 +84,14 @@ def seed_default_chart_of_accounts(db: DbSession) -> None:
     if db.query(Account).count() > 0:
         return
     for code, name, account_type, is_cash in DEFAULT_CHART_OF_ACCOUNTS:
-        create_account(db, code, name, account_type, is_cash_account=is_cash)
+        db.add(
+            Account(
+                code=code,
+                name=name,
+                account_type=account_type,
+                normal_balance=TYPE_NORMAL_BALANCE[account_type],
+                is_cash_account=is_cash,
+                is_active=True,
+            )
+        )
+    db.commit()
