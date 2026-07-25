@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session as DbSession
 
-from app.dependencies import get_db, require_login, verify_csrf
+from app.dependencies import get_db, require_admin, require_login, verify_csrf
 from app.models.user import User
 from app.services import api_key_service, auth_service, user_service
 from app.templating import templates
@@ -15,7 +15,7 @@ NEW_API_KEY_COOKIE = "flash_new_api_key"
 
 @router.get("/api-keys")
 def list_api_keys(
-    request: Request, current_user: User = Depends(require_login), db: DbSession = Depends(get_db)
+    request: Request, current_user: User = Depends(require_admin), db: DbSession = Depends(get_db)
 ):
     api_keys = api_key_service.list_api_keys(db)
     new_token = request.cookies.get(NEW_API_KEY_COOKIE)
@@ -32,7 +32,7 @@ def list_api_keys(
 @router.post("/api-keys", dependencies=[Depends(verify_csrf)])
 def create_api_key(
     name: str = Form(...),
-    current_user: User = Depends(require_login),
+    current_user: User = Depends(require_admin),
     db: DbSession = Depends(get_db),
 ):
     _api_key, token = api_key_service.create_api_key(db, name.strip(), current_user.id)
@@ -46,7 +46,7 @@ def create_api_key(
 @router.post("/api-keys/{api_key_id}/revoke", dependencies=[Depends(verify_csrf)])
 def revoke_api_key(
     api_key_id: int,
-    current_user: User = Depends(require_login),
+    current_user: User = Depends(require_admin),
     db: DbSession = Depends(get_db),
 ):
     api_key = api_key_service.get_api_key(db, api_key_id)
@@ -58,7 +58,7 @@ def revoke_api_key(
 
 @router.get("/users")
 def list_users(
-    request: Request, current_user: User = Depends(require_login), db: DbSession = Depends(get_db)
+    request: Request, current_user: User = Depends(require_admin), db: DbSession = Depends(get_db)
 ):
     users = user_service.list_users(db)
     return templates.TemplateResponse(
@@ -70,7 +70,8 @@ def list_users(
 def create_user(
     email: str = Form(...),
     password: str = Form(...),
-    current_user: User = Depends(require_login),
+    is_admin: bool = Form(False),
+    current_user: User = Depends(require_admin),
     db: DbSession = Depends(get_db),
 ):
     email = email.strip().lower()
@@ -80,14 +81,14 @@ def create_user(
         )
     if user_service.get_user_by_email(db, email):
         return RedirectResponse(url="/settings/users?error=Email already in use", status_code=303)
-    auth_service.create_user(db, email, password)
+    auth_service.create_user(db, email, password, is_admin=is_admin)
     return RedirectResponse(url="/settings/users?ok=User created", status_code=303)
 
 
 @router.post("/users/{user_id}/deactivate", dependencies=[Depends(verify_csrf)])
 def deactivate_user(
     user_id: int,
-    current_user: User = Depends(require_login),
+    current_user: User = Depends(require_admin),
     db: DbSession = Depends(get_db),
 ):
     if user_id == current_user.id:
@@ -104,7 +105,7 @@ def deactivate_user(
 @router.post("/users/{user_id}/activate", dependencies=[Depends(verify_csrf)])
 def activate_user(
     user_id: int,
-    current_user: User = Depends(require_login),
+    current_user: User = Depends(require_admin),
     db: DbSession = Depends(get_db),
 ):
     user = user_service.get_user(db, user_id)

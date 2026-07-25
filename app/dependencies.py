@@ -10,7 +10,7 @@ from app.models.user import User
 from app.services import api_key_service, auth_service
 from app.utils.security import constant_time_eq
 
-__all__ = ["get_db", "require_login", "verify_csrf", "require_api_key"]
+__all__ = ["get_db", "require_login", "require_admin", "verify_csrf", "require_api_key"]
 
 
 def require_login(request: Request, db: DbSession = Depends(get_db)) -> User:
@@ -19,6 +19,12 @@ def require_login(request: Request, db: DbSession = Depends(get_db)) -> User:
     if not user:
         raise NotAuthenticatedError()
     return user
+
+
+def require_admin(current_user: User = Depends(require_login)) -> User:
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
 
 
 def require_api_key(request: Request, db: DbSession = Depends(get_db)) -> ApiKey:

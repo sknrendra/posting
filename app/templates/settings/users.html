@@ -15,6 +15,10 @@
     <input class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
            type="password" id="password" name="password" minlength="8" required />
   </div>
+  <div class="flex items-center gap-2 pb-2.5">
+    <input type="checkbox" id="is_admin" name="is_admin" value="true" class="accent-primary" />
+    <label for="is_admin" class="text-sm">Admin</label>
+  </div>
   <button type="submit" class="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Create</button>
 </form>
 
@@ -22,6 +26,7 @@
   <thead>
     <tr class="border-b border-border text-left text-muted-foreground">
       <th class="px-3 py-2 font-medium">Email</th>
+      <th class="px-3 py-2 font-medium">Role</th>
       <th class="px-3 py-2 font-medium">Status</th>
       <th class="px-3 py-2 font-medium"></th>
     </tr>
@@ -30,6 +35,7 @@
     {% for user in users %}
     <tr class="border-b border-border {% if not user.is_active %}text-muted-foreground{% endif %}">
       <td class="px-3 py-2">{{ user.email }}{% if user.id == current_user.id %} <span class="text-muted-foreground">(you)</span>{% endif %}</td>
+      <td class="px-3 py-2">{% if user.is_admin %}Admin{% else %}—{% endif %}</td>
       <td class="px-3 py-2">{% if user.is_active %}Active{% else %}Inactive{% endif %}</td>
       <td class="px-3 py-2 text-right">
         {% if user.id != current_user.id %}

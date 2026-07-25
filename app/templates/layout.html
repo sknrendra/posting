@@ -41,9 +41,13 @@
         </div>
         <div>
           <p class="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Settings</p>
+          {% if current_user.is_admin %}
           <a href="/settings/users" class="block rounded-md px-2 py-1.5 hover:bg-accent hover:text-accent-foreground">Users</a>
+          {% endif %}
           <a href="/settings/password" class="block rounded-md px-2 py-1.5 hover:bg-accent hover:text-accent-foreground">Password</a>
+          {% if current_user.is_admin %}
           <a href="/settings/api-keys" class="block rounded-md px-2 py-1.5 hover:bg-accent hover:text-accent-foreground">API Keys</a>
+          {% endif %}
         </div>
       </nav>
       <div class="border-t border-border p-3 space-y-2">

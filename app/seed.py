@@ -8,7 +8,7 @@ def seed_admin_user() -> None:
     db = SessionLocal()
     try:
         if db.query(User).count() == 0:
-            auth_service.create_user(db, settings.admin_email, settings.admin_password)
+            auth_service.create_user(db, settings.admin_email, settings.admin_password, is_admin=True)
             print(f"Seeded bootstrap admin user: {settings.admin_email}")
     finally:
         db.close()

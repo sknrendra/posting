@@ -53,8 +53,8 @@ def destroy_session(db: DbSession, token: str) -> None:
     db.commit()
 
 
-def create_user(db: DbSession, email: str, password: str) -> User:
-    user = User(email=email, password_hash=hash_password(password), is_active=True)
+def create_user(db: DbSession, email: str, password: str, is_admin: bool = False) -> User:
+    user = User(email=email, password_hash=hash_password(password), is_active=True, is_admin=is_admin)
     db.add(user)
     db.commit()
     db.refresh(user)
