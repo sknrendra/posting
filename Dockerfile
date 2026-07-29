@@ -16,6 +16,13 @@ FROM python:3.12-slim AS app
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 
+# Native libs required by WeasyPrint (invoice PDF rendering) for text shaping,
+# rendering, and image decoding.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
+      libffi-dev shared-mime-info fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -27,7 +34,7 @@ RUN chmod +x entrypoint.sh
 
 COPY --from=tailwind-builder /build/app/static/css/app.css ./app/static/css/app.css
 
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data /app/static/uploads
 
 EXPOSE 8000
 ENTRYPOINT ["./entrypoint.sh"]

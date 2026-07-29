@@ -1,0 +1,158 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>{{ invoice.invoice_number or "Draft Invoice" }}</title>
+<style>
+  @page { size: A4; margin: 2.2cm; }
+  body { font-family: "DejaVu Sans", Helvetica, Arial, sans-serif; font-size: 10.5pt; color: #1a1a1a; }
+  .watermark {
+    position: fixed; top: 40%; left: 0; right: 0; text-align: center;
+    font-size: 72pt; font-weight: bold; color: rgba(200, 30, 30, 0.18);
+    transform: rotate(-25deg); z-index: -1;
+  }
+  .header { display: flex; justify-content: space-between; margin-bottom: 24pt; }
+  .company img { max-height: 64pt; margin-bottom: 8pt; }
+  .company .wordmark { display: flex; align-items: center; gap: 10pt; margin-bottom: 10pt; }
+  .company .wordmark img { max-height: 32pt; margin-bottom: 0; }
+  .company .wordmark span { font-size: 22pt; font-weight: bold; letter-spacing: -0.01em; }
+  .company .name { font-size: 13pt; font-weight: bold; }
+  .meta { text-align: right; }
+  .meta .title { font-size: 18pt; font-weight: bold; }
+  .meta .number { font-family: monospace; font-size: 11pt; margin-top: 2pt; }
+  .blocks { display: flex; justify-content: space-between; margin-bottom: 20pt; }
+  .blocks .label { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.05em; color: #666; margin-bottom: 3pt; }
+  table.lines { width: 100%; border-collapse: collapse; margin-bottom: 16pt; table-layout: fixed; }
+  table.lines th { text-align: left; font-size: 8.5pt; text-transform: uppercase; color: #666; border-bottom: 1pt solid #ccc; padding: 5pt 4pt; }
+  table.lines td { padding: 5pt 4pt; border-bottom: 0.5pt solid #eee; vertical-align: top; overflow-wrap: break-word; }
+  table.lines td.text-right { white-space: nowrap; }
+  .text-right { text-align: right; }
+  .col-description { width: 34%; }
+  .col-qty { width: 9%; }
+  .col-rate { width: 19%; }
+  .col-discount { width: 18%; }
+  .col-amount { width: 20%; }
+  .summary { width: 260pt; margin-left: auto; margin-bottom: 20pt; }
+  .summary .row { display: flex; justify-content: space-between; padding: 2pt 0; }
+  .summary .total { font-weight: bold; border-top: 1pt solid #333; padding-top: 4pt; margin-top: 4pt; }
+  .summary .balance { font-weight: bold; }
+  .notes { margin-top: 16pt; font-size: 9.5pt; }
+  .notes .label { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.05em; color: #666; margin-bottom: 3pt; }
+  .notes p { white-space: pre-line; margin: 0 0 10pt 0; }
+  .void-banner { border: 2pt solid #c81e1e; color: #c81e1e; padding: 6pt 10pt; margin-bottom: 16pt; font-weight: bold; }
+</style>
+</head>
+<body>
+
+{% if invoice.status == "draft" %}
+<div class="watermark">DRAFT</div>
+{% elif invoice.status == "void" %}
+<div class="watermark">VOID</div>
+{% endif %}
+
+{% if invoice.status == "void" %}
+<div class="void-banner">VOID — {{ invoice.void_reason }}</div>
+{% endif %}
+
+<div class="header">
+  <div class="company">
+    {% if using_default_logo %}
+    <div class="wordmark">{% if logo_url %}<img src="{{ logo_url }}" alt="" />{% endif %}<span>Posting</span></div>
+    {% elif logo_url %}
+    <img src="{{ logo_url }}" alt="" />
+    {% endif %}
+    <div class="name">{{ invoice.snapshot_company_name or settings.company_name or "" }}</div>
+    <div>{{ invoice.snapshot_company_address or settings.company_address or "" }}</div>
+    {% if invoice.snapshot_tax_reg_number or settings.company_tax_reg_number %}
+    <div>Tax Reg: {{ invoice.snapshot_tax_reg_number or settings.company_tax_reg_number }}</div>
+    {% endif %}
+  </div>
+  <div class="meta">
+    <div class="title">INVOICE</div>
+    <div class="number">{{ invoice.invoice_number or "DRAFT — NO NUMBER ASSIGNED" }}</div>
+    <div>Date: {{ invoice.invoice_date|long_date }}</div>
+    {% if invoice.due_date %}<div>Due: {{ invoice.due_date|long_date }}</div>{% endif %}
+    {% if invoice.service_period_start or invoice.service_period_end %}
+    <div>Service Period: {{ invoice.service_period_start|long_date }} &ndash; {{ invoice.service_period_end|long_date }}</div>
+    {% endif %}
+    {% if invoice.po_number %}<div>PO: {{ invoice.po_number }}</div>{% endif %}
+  </div>
+</div>
+
+<div class="blocks">
+  <div>
+    <div class="label">Bill To</div>
+    <div>{{ invoice.customer_name or "" }}</div>
+    {% if invoice.customer_address %}<div>{{ invoice.customer_address }}</div>{% endif %}
+    {% if invoice.customer_contact %}<div>{{ invoice.customer_contact }}</div>{% endif %}
+  </div>
+</div>
+
+<table class="lines">
+  <colgroup>
+    <col class="col-description" />
+    <col class="col-qty" />
+    <col class="col-rate" />
+    <col class="col-discount" />
+    <col class="col-amount" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Description</th>
+      <th class="text-right">Qty</th>
+      <th class="text-right">Rate</th>
+      <th class="text-right">Discount</th>
+      <th class="text-right">Amount</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in invoice.lines %}
+    <tr>
+      <td>{{ line.description }}</td>
+      <td class="text-right">{% if not line.hide_qty_rate %}{{ line.quantity|qty }}{% endif %}</td>
+      <td class="text-right">{% if not line.hide_qty_rate %}{{ line.rate|rupiah }}{% endif %}</td>
+      <td class="text-right">{% if line.discount_amount %}{{ line.discount_amount|rupiah }}{% endif %}</td>
+      <td class="text-right">{{ line.line_amount|rupiah }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="summary">
+  <div class="row"><span>Subtotal</span><span>{{ invoice.subtotal_gross|rupiah }}</span></div>
+  {% if invoice.total_discount %}
+  <div class="row"><span>Discount</span><span>-{{ invoice.total_discount|rupiah }}</span></div>
+  {% endif %}
+  {% if invoice.tax_amount %}
+  <div class="row"><span>Tax ({{ invoice.tax_rate }}%)</span><span>{{ invoice.tax_amount|rupiah }}</span></div>
+  {% endif %}
+  <div class="row total"><span>Total</span><span>{{ invoice.total|rupiah }}</span></div>
+  {% if invoice.deposit_applied %}
+  <div class="row"><span>Deposit Applied</span><span>-{{ invoice.deposit_applied|rupiah }}</span></div>
+  <div class="row balance"><span>Balance Due</span><span>{{ invoice.balance_due|rupiah }}</span></div>
+  {% endif %}
+</div>
+
+{% if payment_instructions %}
+<div class="notes">
+  <div class="label">Payment Instructions</div>
+  <p>{{ payment_instructions }}</p>
+</div>
+{% endif %}
+
+{% if invoice.notes %}
+<div class="notes">
+  <div class="label">Notes</div>
+  <p>{{ invoice.notes }}</p>
+</div>
+{% endif %}
+
+{% if invoice.terms %}
+<div class="notes">
+  <div class="label">Terms</div>
+  <p>{{ invoice.terms }}</p>
+</div>
+{% endif %}
+
+</body>
+</html>

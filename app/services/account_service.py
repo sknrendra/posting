@@ -81,7 +81,11 @@ def set_active(db: DbSession, account: Account, is_active: bool) -> Account:
 
 
 def seed_default_chart_of_accounts(db: DbSession) -> None:
-    if db.query(Account).count() > 0:
-        return
+    # Idempotent per-code (not "table is empty") since migrations may seed a
+    # handful of accounts (e.g. invoice-related ones) before this ever runs —
+    # a table-count guard would otherwise skip the whole default chart.
+    existing_codes = {code for (code,) in db.query(Account.code).all()}
     for code, name, account_type, is_cash in DEFAULT_CHART_OF_ACCOUNTS:
+        if code in existing_codes:
+            continue
         create_account(db, code, name, account_type, is_cash_account=is_cash)

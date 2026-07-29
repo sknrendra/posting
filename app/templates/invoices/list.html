@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+{% block title %}Invoices — Posting{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-semibold">Invoices</h1>
+  <div class="flex gap-3">
+    <a href="/invoices/settings" class="rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Invoice Settings</a>
+    <a href="/invoices/new" class="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">New Invoice</a>
+  </div>
+</div>
+
+<form method="get" action="/invoices" class="flex items-center gap-3 mb-4">
+  <input type="text" name="search" value="{{ search }}" placeholder="Search by number or customer"
+         class="w-64 rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground" />
+  <select name="status" class="rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <option value="" {% if not status %}selected{% endif %}>All statuses</option>
+    <option value="draft" {% if status == "draft" %}selected{% endif %}>Draft</option>
+    <option value="posted" {% if status == "posted" %}selected{% endif %}>Posted</option>
+    <option value="void" {% if status == "void" %}selected{% endif %}>Void</option>
+  </select>
+  <button type="submit" class="rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Filter</button>
+</form>
+
+<table class="w-full text-sm rounded-lg border border-border overflow-hidden">
+  <thead>
+    <tr class="border-b border-border text-left text-muted-foreground">
+      <th class="px-3 py-2 font-medium">Number</th>
+      <th class="px-3 py-2 font-medium">Invoice Date</th>
+      <th class="px-3 py-2 font-medium">Customer</th>
+      <th class="px-3 py-2 font-medium text-right">Total</th>
+      <th class="px-3 py-2 font-medium text-right">Balance Due</th>
+      <th class="px-3 py-2 font-medium">Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for invoice in invoices %}
+    <tr class="border-b border-border hover:bg-accent/50 {% if invoice.status == 'void' %}text-muted-foreground line-through{% elif invoice.status == 'draft' %}text-muted-foreground{% endif %}">
+      <td class="px-3 py-2 font-mono">
+        <a class="underline" href="/invoices/{{ invoice.id }}">{{ invoice.invoice_number or "DRAFT" }}</a>
+      </td>
+      <td class="px-3 py-2">{{ invoice.invoice_date }}</td>
+      <td class="px-3 py-2">{{ invoice.customer_name or "—" }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ invoice.total|rupiah }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ invoice.balance_due|rupiah }}</td>
+      <td class="px-3 py-2">
+        {% if invoice.status == "draft" %}
+        <span class="inline-block rounded-full border border-border px-2 py-0.5 text-xs uppercase tracking-wide">Draft</span>
+        {% elif invoice.status == "posted" %}
+        <span class="inline-block rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs uppercase tracking-wide">Posted</span>
+        {% else %}
+        <span class="inline-block rounded-full bg-destructive/10 text-destructive px-2 py-0.5 text-xs uppercase tracking-wide">Void</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td class="px-3 py-2 text-muted-foreground" colspan="6">No invoices yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

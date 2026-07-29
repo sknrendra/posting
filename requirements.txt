@@ -7,3 +7,4 @@ python-multipart==0.0.20
 argon2-cffi==23.1.0
 pydantic==2.10.4
 pydantic-settings==2.7.1
+weasyprint==69.0

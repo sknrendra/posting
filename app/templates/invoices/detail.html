@@ -1,0 +1,129 @@
+{% extends "layout.html" %}
+{% block title %}{{ invoice.invoice_number or "Draft Invoice" }} — Posting{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-1">
+  <h1 class="text-2xl font-semibold">{{ invoice.invoice_number or "Draft Invoice #" ~ invoice.id }}</h1>
+  {% if invoice.status == "draft" %}
+  <span class="inline-block rounded-full border border-border px-3 py-1 text-xs uppercase tracking-wide">Draft</span>
+  {% elif invoice.status == "posted" %}
+  <span class="inline-block rounded-full bg-primary/10 text-primary px-3 py-1 text-xs uppercase tracking-wide">Posted</span>
+  {% else %}
+  <span class="inline-block rounded-full bg-destructive/10 text-destructive px-3 py-1 text-xs uppercase tracking-wide">Void</span>
+  {% endif %}
+</div>
+<p class="text-muted-foreground mb-6">{{ invoice.invoice_date|long_date }}{% if invoice.due_date %} — due {{ invoice.due_date|long_date }}{% endif %}</p>
+
+<div class="flex gap-3 mb-6">
+  {% if invoice.status == "draft" %}
+  <a href="/invoices/{{ invoice.id }}/edit" class="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Edit</a>
+  <form method="post" action="/invoices/{{ invoice.id }}/post" onsubmit="return confirm('Posting assigns a permanent invoice number and creates a journal entry. The invoice becomes immutable. Continue?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <button type="submit" class="rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Post</button>
+  </form>
+  <form method="post" action="/invoices/{{ invoice.id }}/delete" onsubmit="return confirm('Delete this draft invoice? This cannot be undone.')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <button type="submit" class="rounded-md border border-destructive text-destructive bg-transparent px-4 py-2 text-sm font-medium hover:bg-destructive hover:text-destructive-foreground">Delete</button>
+  </form>
+  {% elif invoice.status == "posted" %}
+  <a href="/invoices/{{ invoice.id }}/pdf" class="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Download PDF</a>
+  <button type="button" class="rounded-md border border-destructive text-destructive bg-transparent px-4 py-2 text-sm font-medium hover:bg-destructive hover:text-destructive-foreground" x-data @click="$refs.voidDialog.showModal()">Void</button>
+  <dialog x-data x-ref="voidDialog" class="rounded-md border border-border p-6 max-w-md w-full backdrop:bg-black/50">
+    <form method="post" action="/invoices/{{ invoice.id }}/void">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      <h2 class="text-lg font-semibold mb-3">Void Invoice</h2>
+      <p class="text-sm text-muted-foreground mb-3">This creates a reversing journal entry. The original entry and invoice number are retained; this cannot be undone.</p>
+      <label class="block text-sm font-medium mb-1" for="void_reason">Reason (required)</label>
+      <textarea id="void_reason" name="void_reason" required rows="3"
+                class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm mb-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"></textarea>
+      <div class="flex gap-3 justify-end">
+        <button type="button" class="rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="rounded-md bg-destructive text-destructive-foreground px-4 py-2 text-sm font-medium">Void Invoice</button>
+      </div>
+    </form>
+  </dialog>
+  {% else %}
+  <a href="/invoices/{{ invoice.id }}/pdf" class="rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Download PDF</a>
+  {% endif %}
+</div>
+
+{% if invoice.status == "void" %}
+<div class="mb-6 rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm">
+  <p class="font-medium">Voided {{ invoice.voided_at }}</p>
+  <p>{{ invoice.void_reason }}</p>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-2 gap-6 mb-6">
+  <div>
+    <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Customer</p>
+    <p>{{ invoice.customer_name or "—" }}</p>
+    {% if invoice.customer_address %}<p class="text-muted-foreground whitespace-pre-line">{{ invoice.customer_address }}</p>{% endif %}
+    {% if invoice.customer_contact %}<p class="text-muted-foreground">{{ invoice.customer_contact }}</p>{% endif %}
+  </div>
+  <div>
+    {% if invoice.po_number %}<p><span class="text-muted-foreground">PO Number:</span> {{ invoice.po_number }}</p>{% endif %}
+    {% if invoice.service_period_start or invoice.service_period_end %}
+    <p><span class="text-muted-foreground">Service Period:</span> {{ invoice.service_period_start|long_date }} – {{ invoice.service_period_end|long_date }}</p>
+    {% endif %}
+    {% if invoice.journal_entry_id %}
+    <p><span class="text-muted-foreground">Journal Entry:</span> <a class="underline" href="/journal-entries/{{ invoice.journal_entry_id }}">#{{ invoice.journal_entry_id }}</a></p>
+    {% endif %}
+    {% if invoice.void_journal_entry_id %}
+    <p><span class="text-muted-foreground">Void Journal Entry:</span> <a class="underline" href="/journal-entries/{{ invoice.void_journal_entry_id }}">#{{ invoice.void_journal_entry_id }}</a></p>
+    {% endif %}
+  </div>
+</div>
+
+<table class="w-full text-sm rounded-lg border border-border overflow-hidden mb-6">
+  <thead>
+    <tr class="border-b border-border text-left text-muted-foreground">
+      <th class="px-3 py-2 font-medium">Description</th>
+      <th class="px-3 py-2 font-medium text-right">Qty</th>
+      <th class="px-3 py-2 font-medium text-right">Rate</th>
+      <th class="px-3 py-2 font-medium text-right">Discount</th>
+      <th class="px-3 py-2 font-medium text-right">Amount</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in invoice.lines %}
+    <tr class="border-b border-border">
+      <td class="px-3 py-2">{{ line.description }}{% if line.hide_qty_rate %} <span class="text-xs text-muted-foreground">(flat fee — qty/rate hidden on PDF)</span>{% endif %}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "Flat" if line.hide_qty_rate else line.quantity|qty }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ line.rate|rupiah }}</td>
+      <td class="px-3 py-2 text-right font-mono">{% if line.discount_amount %}{{ line.discount_amount|rupiah }}{% endif %}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ line.line_amount|rupiah }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="flex justify-end">
+  <div class="w-72 text-sm space-y-1">
+    <div class="flex justify-between"><span class="text-muted-foreground">Subtotal</span><span class="font-mono">{{ invoice.subtotal_gross|rupiah }}</span></div>
+    {% if invoice.total_discount %}
+    <div class="flex justify-between"><span class="text-muted-foreground">Discount</span><span class="font-mono">-{{ invoice.total_discount|rupiah }}</span></div>
+    {% endif %}
+    {% if invoice.tax_amount %}
+    <div class="flex justify-between"><span class="text-muted-foreground">Tax ({{ invoice.tax_rate }}%)</span><span class="font-mono">{{ invoice.tax_amount|rupiah }}</span></div>
+    {% endif %}
+    <div class="flex justify-between font-medium border-t border-border pt-1"><span>Total</span><span class="font-mono">{{ invoice.total|rupiah }}</span></div>
+    {% if invoice.deposit_applied %}
+    <div class="flex justify-between"><span class="text-muted-foreground">Deposit Applied</span><span class="font-mono">-{{ invoice.deposit_applied|rupiah }}</span></div>
+    <div class="flex justify-between font-medium"><span>Balance Due</span><span class="font-mono">{{ invoice.balance_due|rupiah }}</span></div>
+    {% endif %}
+  </div>
+</div>
+
+{% if invoice.notes %}
+<div class="mt-6">
+  <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Notes</p>
+  <p class="whitespace-pre-line">{{ invoice.notes }}</p>
+</div>
+{% endif %}
+{% if invoice.terms %}
+<div class="mt-4">
+  <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Terms</p>
+  <p class="whitespace-pre-line">{{ invoice.terms }}</p>
+</div>
+{% endif %}
+{% endblock %}

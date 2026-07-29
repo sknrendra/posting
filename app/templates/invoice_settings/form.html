@@ -1,0 +1,165 @@
+{% extends "layout.html" %}
+{% block title %}Invoice Settings — Posting{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">Invoice Settings</h1>
+{% if error %}
+<div class="mb-4 rounded-md border border-destructive bg-destructive text-destructive-foreground px-4 py-2 text-sm">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/invoices/settings" enctype="multipart/form-data" class="max-w-3xl space-y-8">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+  <section>
+    <h2 class="text-lg font-medium mb-3">Company Details</h2>
+    <p class="text-xs text-muted-foreground mb-3">Frozen onto each invoice at the moment it's posted — changing these later never alters previously posted invoices or PDFs.</p>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Legal Name</label>
+        <input type="text" name="company_name" value="{{ settings.company_name or '' }}"
+               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Tax Registration Number</label>
+        <input type="text" name="company_tax_reg_number" value="{{ settings.company_tax_reg_number or '' }}"
+               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+    </div>
+    <div class="mt-4">
+      <label class="block text-sm font-medium mb-1">Address</label>
+      <textarea name="company_address" rows="2" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">{{ settings.company_address or '' }}</textarea>
+    </div>
+    <div class="mt-4">
+      <label class="block text-sm font-medium mb-1">Logo</label>
+      {% if settings.company_logo_path %}
+      <img src="{{ settings.company_logo_path }}" alt="Company logo" class="h-12 mb-2" />
+      {% endif %}
+      <input type="file" name="logo" accept="image/*" class="text-sm" />
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-lg font-medium mb-3">Payment Instructions</h2>
+    <p class="text-xs text-muted-foreground mb-3">Also frozen onto each invoice at posting.</p>
+    <div class="grid grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Bank Name</label>
+        <input type="text" name="bank_name" value="{{ settings.bank_name or '' }}"
+               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Account Name</label>
+        <input type="text" name="bank_account_name" value="{{ settings.bank_account_name or '' }}"
+               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Account Number</label>
+        <input type="text" name="bank_account_number" value="{{ settings.bank_account_number or '' }}"
+               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-4 mt-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Accepted Payment Methods</label>
+        <input type="text" name="accepted_payment_methods" value="{{ settings.accepted_payment_methods or '' }}"
+               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Payment Reference Instruction</label>
+        <input type="text" name="payment_reference_instruction" value="{{ settings.payment_reference_instruction or '' }}"
+               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-lg font-medium mb-3">Invoice Defaults</h2>
+    <div class="grid grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Invoice Prefix</label>
+        <input type="text" name="invoice_prefix" value="{{ settings.invoice_prefix }}" required
+               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Default Payment Terms (days)</label>
+        <input type="number" name="default_payment_terms_days" value="{{ settings.default_payment_terms_days }}" min="0" required
+               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Default Tax Rate (%)</label>
+        <input type="text" inputmode="decimal" name="default_tax_rate" value="{{ settings.default_tax_rate }}"
+               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-4 mt-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Default Notes</label>
+        <textarea name="default_notes" rows="2" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">{{ settings.default_notes or '' }}</textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Default Terms</label>
+        <textarea name="default_terms" rows="2" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">{{ settings.default_terms or '' }}</textarea>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-lg font-medium mb-3">Account Mapping</h2>
+    <p class="text-xs text-muted-foreground mb-3">
+      Selecting a Sales Discounts account switches posting from the net method to the gross method
+      (discounts booked to their own account instead of netted against revenue).
+    </p>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Accounts Receivable <span class="text-destructive">*</span></label>
+        <select name="ar_account_id" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <option value=""></option>
+          {% for account in accounts %}
+          <option value="{{ account.id }}" {% if settings.ar_account_id == account.id %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Service Revenue <span class="text-destructive">*</span></label>
+        <select name="service_revenue_account_id" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <option value=""></option>
+          {% for account in accounts %}
+          <option value="{{ account.id }}" {% if settings.service_revenue_account_id == account.id %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Tax Payable <span class="text-destructive">*</span></label>
+        <select name="tax_payable_account_id" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <option value=""></option>
+          {% for account in accounts %}
+          <option value="{{ account.id }}" {% if settings.tax_payable_account_id == account.id %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Unearned Revenue <span class="text-destructive">*</span></label>
+        <select name="unearned_revenue_account_id" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <option value=""></option>
+          {% for account in accounts %}
+          <option value="{{ account.id }}" {% if settings.unearned_revenue_account_id == account.id %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Sales Discounts (optional)</label>
+        <select name="sales_discounts_account_id" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <option value=""></option>
+          {% for account in accounts %}
+          <option value="{{ account.id }}" {% if settings.sales_discounts_account_id == account.id %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <div class="flex gap-3">
+    <button type="submit" class="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Save Settings</button>
+    <a href="/invoices" class="rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Cancel</a>
+  </div>
+</form>
+{% endblock %}

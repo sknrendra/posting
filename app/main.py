@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from app.controllers import (
     auth_controller,
     balance_controller,
+    invoice_controller,
     journal_entries_controller,
     ledger_accounts_controller,
     reconciliation_controller,
@@ -34,6 +35,10 @@ app.include_router(auth_controller.router)
 app.include_router(ledger_accounts_controller.router)
 app.include_router(ledger_accounts_controller.ledger_router)
 app.include_router(journal_entries_controller.router)
+# invoice_settings_router (a static "/invoices/settings" path) must be registered
+# before invoice_controller.router so it isn't shadowed by the "/invoices/{invoice_id}" route.
+app.include_router(invoice_controller.invoice_settings_router)
+app.include_router(invoice_controller.router)
 app.include_router(balance_controller.router)
 app.include_router(reconciliation_controller.router)
 app.include_router(reports_controller.router)

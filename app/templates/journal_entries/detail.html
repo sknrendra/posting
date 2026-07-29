@@ -3,6 +3,9 @@
 {% block content %}
 <h1 class="text-2xl font-semibold mb-1">Journal Entry #{{ entry.id }}</h1>
 <p class="text-muted-foreground mb-6">{{ entry.entry_date }} — {{ entry.memo }} ({{ entry.source }})</p>
+{% if related_invoice %}
+<p class="mb-6"><a class="underline" href="/invoices/{{ related_invoice.id }}">View related invoice {{ related_invoice.invoice_number or "#" ~ related_invoice.id }}</a></p>
+{% endif %}
 <table class="w-full text-sm rounded-lg border border-border overflow-hidden">
   <thead>
     <tr class="border-b border-border text-left text-muted-foreground">

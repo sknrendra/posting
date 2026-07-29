@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.dependencies import get_db, require_login, verify_csrf
 from app.models.user import User
-from app.services import account_service, journal_service
+from app.services import account_service, invoice_service, journal_service
 from app.services.journal_service import InvalidJournalEntryError, LineInput
 from app.templating import templates
 
@@ -138,6 +138,9 @@ def journal_entry_detail(
     entry = journal_service.get_entry(db, entry_id)
     if not entry:
         raise HTTPException(status_code=404)
+    related_invoice = invoice_service.get_invoice_by_journal_entry_id(db, entry_id)
     return templates.TemplateResponse(
-        request, "journal_entries/detail.html", {"current_user": current_user, "entry": entry}
+        request,
+        "journal_entries/detail.html",
+        {"current_user": current_user, "entry": entry, "related_invoice": related_invoice},
     )

@@ -1,0 +1,224 @@
+{% extends "layout.html" %}
+{% block title %}{{ "Edit Invoice" if invoice else "New Invoice" }} — Posting{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">{{ "Edit Invoice" if invoice else "New Invoice" }}</h1>
+{% if error %}
+<div class="mb-4 rounded-md border border-destructive bg-destructive text-destructive-foreground px-4 py-2 text-sm">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="{{ ('/invoices/' ~ invoice.id ~ '/edit') if invoice else '/invoices/new' }}"
+      x-data='{
+        invoiceDate: {{ invoice_date|tojson }},
+        dueDate: {{ due_date|tojson }},
+        dueDateEdited: false,
+        defaultTermsDays: {{ default_payment_terms_days|default(30) }},
+        taxRate: {{ tax_rate|tojson }},
+        depositApplied: {{ (invoice.deposit_applied|string if invoice else "0")|tojson }},
+        lines: {{ lines|tojson }},
+        subtotalGross: 0, totalDiscount: 0, subtotalNet: 0, taxAmount: 0, total: 0, deposit: 0, balanceDue: 0,
+        roundRupiah(x) { return Math.round(x); },
+        fmt(n) { return "Rp " + Math.round(n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."); },
+        resolveLine(line) {
+          const qty = parseFloat(line.quantity) || 0;
+          const rate = parseFloat(line.rate) || 0;
+          const gross = this.roundRupiah(qty * rate);
+          line.line_gross = gross;
+          if (gross === 0) {
+            line.discount_amount = "0"; line.discount_percentage = "0"; line.line_amount = 0;
+            return;
+          }
+          let amount, pct;
+          if (line.discount_mode === "percent") {
+            pct = parseFloat(line.discount_percentage) || 0;
+            amount = this.roundRupiah(gross * pct / 100);
+          } else {
+            amount = parseFloat(line.discount_amount) || 0;
+            pct = Math.round((amount / gross * 100) * 100) / 100;
+          }
+          if (amount > gross) { amount = gross; pct = 100; }
+          if (amount < 0) { amount = 0; pct = 0; }
+          line.discount_amount = String(amount);
+          line.discount_percentage = String(pct);
+          line.line_amount = gross - amount;
+        },
+        recalc() {
+          this.lines.forEach(l => this.resolveLine(l));
+          this.subtotalGross = this.lines.reduce((s,l) => s + l.line_gross, 0);
+          this.totalDiscount = this.lines.reduce((s,l) => s + (parseFloat(l.discount_amount) || 0), 0);
+          this.subtotalNet = this.subtotalGross - this.totalDiscount;
+          const rate = parseFloat(this.taxRate) || 0;
+          this.taxAmount = this.roundRupiah(this.subtotalNet * rate / 100);
+          this.total = this.subtotalNet + this.taxAmount;
+          this.deposit = parseFloat(this.depositApplied) || 0;
+          this.balanceDue = this.total - this.deposit;
+        },
+        addLine() {
+          this.lines.push({description: "", quantity: "1", rate: "0", discount_mode: "amount", discount_amount: "0", discount_percentage: "0", hide_qty_rate: false, line_gross: 0, line_amount: 0});
+          this.recalc();
+        },
+        removeLine(i) { this.lines.splice(i, 1); this.recalc(); },
+        moveUp(i) { if (i > 0) { const t = this.lines[i-1]; this.lines[i-1] = this.lines[i]; this.lines[i] = t; } },
+        moveDown(i) { if (i < this.lines.length - 1) { const t = this.lines[i+1]; this.lines[i+1] = this.lines[i]; this.lines[i] = t; } },
+        onInvoiceDateChange() {
+          if (!this.dueDateEdited && this.invoiceDate) {
+            const d = new Date(this.invoiceDate + "T00:00:00");
+            d.setDate(d.getDate() + this.defaultTermsDays);
+            this.dueDate = d.toISOString().slice(0, 10);
+          }
+        }
+      }' x-init="recalc()">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+  <div class="grid grid-cols-3 gap-4 mb-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Invoice Date</label>
+      <input type="date" name="invoice_date" x-model="invoiceDate" @input="onInvoiceDateChange()" required
+             class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Due Date</label>
+      <input type="date" name="due_date" x-model="dueDate" @input="dueDateEdited = true"
+             class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">PO Number</label>
+      <input type="text" name="po_number" value="{{ invoice.po_number if invoice else '' }}"
+             class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4 mb-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Service Period Start</label>
+      <input type="date" name="service_period_start" value="{{ service_period_start }}"
+             class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Service Period End</label>
+      <input type="date" name="service_period_end" value="{{ service_period_end }}"
+             class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+    </div>
+  </div>
+
+  <div class="grid grid-cols-3 gap-4 mb-6">
+    <div>
+      <label class="block text-sm font-medium mb-1">Customer Name</label>
+      <input type="text" name="customer_name" value="{{ invoice.customer_name if invoice else '' }}"
+             placeholder="Required to post (not to save draft)"
+             class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Customer Address</label>
+      <input type="text" name="customer_address" value="{{ invoice.customer_address if invoice else '' }}"
+             class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Customer Contact</label>
+      <input type="text" name="customer_contact" value="{{ invoice.customer_contact if invoice else '' }}"
+             placeholder="Phone or email (optional)"
+             class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground" />
+    </div>
+  </div>
+
+  <table class="w-full text-sm rounded-lg border border-border overflow-hidden mb-3">
+    <thead>
+      <tr class="border-b border-border text-left text-muted-foreground">
+        <th class="px-3 py-2 font-medium">Description</th>
+        <th class="px-3 py-2 font-medium w-24">Qty</th>
+        <th class="px-3 py-2 font-medium w-16">Flat</th>
+        <th class="px-3 py-2 font-medium w-32">Rate</th>
+        <th class="px-3 py-2 font-medium w-28">Discount Rp</th>
+        <th class="px-3 py-2 font-medium w-24">Discount %</th>
+        <th class="px-3 py-2 font-medium text-right w-32">Amount</th>
+        <th class="px-3 py-2 font-medium w-20"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <template x-for="(line, index) in lines" :key="index">
+        <tr class="border-b border-border">
+          <td class="px-3 py-2">
+            <input type="text" name="description" x-model="line.description" required
+                   class="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" inputmode="decimal" name="quantity" x-model="line.quantity" :disabled="line.hide_qty_rate"
+                   @input="resolveLine(line); recalc()"
+                   class="w-full rounded-md border border-input bg-transparent px-2 py-1.5 font-mono text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
+          </td>
+          <td class="px-3 py-2 text-center">
+            <input type="checkbox" x-model="line.hide_qty_rate"
+                   @change="if (line.hide_qty_rate) { line.quantity = '1'; } resolveLine(line); recalc()" />
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" inputmode="decimal" name="rate" x-model="line.rate"
+                   @input="resolveLine(line); recalc()"
+                   class="w-full rounded-md border border-input bg-transparent px-2 py-1.5 font-mono text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" inputmode="decimal" x-model="line.discount_amount"
+                   @input="line.discount_mode = 'amount'; resolveLine(line); recalc()"
+                   class="w-full rounded-md border border-input bg-transparent px-2 py-1.5 font-mono text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" inputmode="decimal" x-model="line.discount_percentage" :disabled="line.line_gross == 0"
+                   @input="line.discount_mode = 'percent'; resolveLine(line); recalc()"
+                   class="w-full rounded-md border border-input bg-transparent px-2 py-1.5 font-mono text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
+          </td>
+          <td class="px-3 py-2 text-right font-mono" x-text="fmt(line.line_amount)"></td>
+          <td class="px-3 py-2 text-right whitespace-nowrap">
+            <button type="button" class="text-muted-foreground hover:text-foreground px-1" @click="moveUp(index)">&uarr;</button>
+            <button type="button" class="text-muted-foreground hover:text-foreground px-1" @click="moveDown(index)">&darr;</button>
+            <button type="button" class="text-muted-foreground hover:text-foreground px-1" @click="removeLine(index)">&times;</button>
+          </td>
+          <input type="hidden" name="discount_mode" :value="line.discount_mode" />
+          <input type="hidden" name="hide_qty_rate" :value="line.hide_qty_rate ? 'true' : 'false'" />
+        </tr>
+      </template>
+    </tbody>
+  </table>
+  <button type="button" class="text-sm underline mb-6" @click="addLine()">+ Add line</button>
+
+  <div class="grid grid-cols-3 gap-6 mb-6">
+    <div>
+      <label class="block text-sm font-medium mb-1">Tax Rate (%)</label>
+      <input type="text" inputmode="decimal" name="tax_rate" x-model="taxRate" @input="recalc()"
+             class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Deposit Applied (Rp)</label>
+      <input type="text" inputmode="decimal" name="deposit_applied" x-model="depositApplied" @input="recalc()"
+             class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      <!-- Manually entered — there is no Payments module yet, so this debits Unearned
+           Revenue with nothing backing it on the cash side. See invoice_service.post_invoice. -->
+    </div>
+    <div class="text-sm space-y-1 self-end">
+      <div class="flex justify-between"><span class="text-muted-foreground">Subtotal</span><span class="font-mono" x-text="fmt(subtotalGross)"></span></div>
+      <div class="flex justify-between" x-show="totalDiscount > 0"><span class="text-muted-foreground">Discount</span><span class="font-mono" x-text="'-' + fmt(totalDiscount)"></span></div>
+      <div class="flex justify-between" x-show="taxAmount > 0"><span class="text-muted-foreground">Tax</span><span class="font-mono" x-text="fmt(taxAmount)"></span></div>
+      <div class="flex justify-between font-medium border-t border-border pt-1"><span>Total</span><span class="font-mono" x-text="fmt(total)"></span></div>
+      <div class="flex justify-between" x-show="deposit > 0"><span class="text-muted-foreground">Deposit Applied</span><span class="font-mono" x-text="'-' + fmt(deposit)"></span></div>
+      <div class="flex justify-between font-medium" x-show="deposit > 0"><span>Balance Due</span><span class="font-mono" x-text="fmt(balanceDue)"></span></div>
+      <p class="text-destructive text-xs" x-show="balanceDue < 0">Deposit applied cannot exceed the total.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4 mb-6">
+    <div>
+      <label class="block text-sm font-medium mb-1">Notes</label>
+      <textarea name="notes" rows="3" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">{{ notes }}</textarea>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Terms</label>
+      <textarea name="terms" rows="3" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">{{ terms }}</textarea>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" name="action" value="draft" class="rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Save as Draft</button>
+    <button type="submit" name="action" value="post"
+            onclick="return confirm('Posting assigns a permanent invoice number and creates a journal entry. The invoice becomes immutable. Continue?')"
+            class="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Save &amp; Post</button>
+    <a href="{{ ('/invoices/' ~ invoice.id) if invoice else '/invoices' }}" class="rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">Cancel</a>
+  </div>
+</form>
+{% endblock %}

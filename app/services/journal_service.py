@@ -33,9 +33,18 @@ def post_entry(
     created_by_user_id: int | None = None,
     created_by_api_key_id: int | None = None,
     external_reference: str | None = None,
+    invoice_id: int | None = None,
+    reverses_entry_id: int | None = None,
+    commit: bool = True,
 ) -> tuple[JournalEntry, bool]:
     """Returns (entry, created) — created is False when external_reference already
-    existed and the prior entry was returned unchanged (webhook retry idempotency)."""
+    existed and the prior entry was returned unchanged (webhook retry idempotency).
+
+    When commit=False, the entry is flushed (assigning entry.id, running
+    constraints) but not committed — the caller owns the transaction boundary.
+    Used by invoice posting/voiding so the invoice's own field updates and the
+    journal entry land in one all-or-nothing commit.
+    """
     if external_reference:
         existing = (
             db.query(JournalEntry)
@@ -76,6 +85,8 @@ def post_entry(
         created_by_user_id=created_by_user_id,
         created_by_api_key_id=created_by_api_key_id,
         external_reference=external_reference,
+        invoice_id=invoice_id,
+        reverses_entry_id=reverses_entry_id,
     )
     for line in lines:
         entry.lines.append(
@@ -87,6 +98,9 @@ def post_entry(
             )
         )
     db.add(entry)
+    if not commit:
+        db.flush()
+        return entry, True
     db.commit()
     db.refresh(entry)
     return entry, True

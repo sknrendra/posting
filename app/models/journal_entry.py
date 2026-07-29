@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SQLiteDecimal, TimestampMixin
 
-SOURCES = ("manual", "webhook")
+SOURCES = ("manual", "webhook", "invoice")
 
 
 class JournalEntry(Base, TimestampMixin):
@@ -25,6 +25,12 @@ class JournalEntry(Base, TimestampMixin):
         ForeignKey("api_keys.id"), nullable=True
     )
     external_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # No relationship() here on purpose — see the comment on Invoice.journal_entry_id
+    # about the multiple FK paths between invoices and journal_entries.
+    invoice_id: Mapped[int | None] = mapped_column(ForeignKey("invoices.id"), nullable=True, index=True)
+    reverses_entry_id: Mapped[int | None] = mapped_column(
+        ForeignKey("journal_entries.id"), nullable=True
+    )
 
     lines: Mapped[list["JournalLine"]] = relationship(
         back_populates="journal_entry", cascade="all, delete-orphan", order_by="JournalLine.id"
