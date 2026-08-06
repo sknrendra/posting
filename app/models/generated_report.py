@@ -4,7 +4,7 @@ from sqlalchemy import JSON, CheckConstraint, Date, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
-from app.models.reconciliation import PERIOD_TYPES
+from app.utils.periods import PERIOD_TYPES
 
 REPORT_TYPES = ("profit_loss", "balance_sheet", "cash_flow")
 

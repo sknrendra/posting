@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block title %}Start Reconciliation — Posting{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-2xl font-semibold">{{ account.code }} — {{ account.name }}</h1>
+  <a href="/reconciliation" class="text-sm underline">Back to reconciliation</a>
+</div>
+<p class="text-muted-foreground mb-6">Start a new reconciliation</p>
+
+{% if error %}
+<div class="mb-4 rounded-md border border-destructive bg-destructive text-destructive-foreground px-4 py-2 text-sm">{{ error }}</div>
+{% endif %}
+{% if warning %}
+<div class="mb-4 rounded-md border border-destructive bg-destructive text-destructive-foreground px-4 py-2 text-sm">{{ warning }}</div>
+{% endif %}
+
+<form method="post" action="/reconciliation/{{ account.id }}/new" class="max-w-md space-y-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+  <div>
+    <label class="block text-sm font-medium mb-1">Starting balance</label>
+    <p class="w-full rounded-md border border-input bg-muted px-3 py-2 text-sm font-mono text-muted-foreground">{{ "%.2f"|format(starting_balance) }}</p>
+    <p class="text-xs text-muted-foreground mt-1">Locked to the ending balance of the last completed reconciliation (or zero if there isn't one).</p>
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1" for="statement_date">Statement date</label>
+    <input class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+           type="date" id="statement_date" name="statement_date" required />
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1" for="statement_ending_balance">Statement ending balance</label>
+    <input class="w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+           type="text" inputmode="decimal" id="statement_ending_balance" name="statement_ending_balance" placeholder="0.00" required />
+  </div>
+
+  <button type="submit" class="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Start reconciliation</button>
+</form>
+{% endblock %}
