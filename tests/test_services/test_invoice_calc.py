@@ -60,3 +60,58 @@ def test_header_calculation_order():
     assert header.tax_amount == round_rupiah(header.subtotal_net * D(11) / 100)
     assert header.total == header.subtotal_net + header.tax_amount
     assert header.balance_due == header.total - D(200000)
+
+
+# --- gaps: resolve_line ------------------------------------------------------
+
+
+def test_negative_gross_not_clamped():
+    """No guard on the gross itself — only the derived discount amount is
+    ever clamped to [0, line_gross]. A negative quantity/rate produces a
+    negative line_gross that flows straight through."""
+    result = resolve_line(D(-1), D(1000), "amount", D(0), D(0))
+    assert result.line_gross == D(-1000)
+    assert result.line_amount == D(-1000)
+
+
+def test_percent_over_100_clamped_to_full_gross():
+    result = resolve_line(D(1), D(1000), "percent", D(0), D(150))
+    assert result.discount_amount == D(1000)
+    assert result.discount_percentage == D("100.00")
+    assert result.line_amount == D(0)
+
+
+def test_amount_mode_to_percent_conversion_uses_two_decimal_precision():
+    # amount->percent uses .quantize(Decimal("0.01")), a different precision
+    # than percent->amount's whole-unit round_rupiah — worth pinning explicitly.
+    result = resolve_line(D(3), D(1000), "amount", D(1), D(0))
+    assert result.discount_percentage == (D(1) / D(3000) * 100).quantize(D("0.01"))
+
+
+def test_discount_amount_exactly_equal_to_gross_not_the_over_clamp_path():
+    result = resolve_line(D(1), D(1000), "amount", D(1000), D(0))
+    assert result.discount_amount == D(1000)
+    assert result.line_amount == D(0)
+    # Percentage still derives to 100.00 via the normal amount->percent path,
+    # not via the `amount > line_gross` clamp branch (amount == gross, not >).
+    assert result.discount_percentage == D("100.00")
+
+
+def test_round_rupiah_exact_whole_number_unchanged():
+    assert round_rupiah(D("100")) == D("100")
+
+
+def test_resolve_header_empty_line_results():
+    header = resolve_header([], D(11), D(500))
+    assert header.subtotal_gross == D(0)
+    assert header.total_discount == D(0)
+    assert header.subtotal_net == D(0)
+    assert header.tax_amount == D(0)
+    assert header.total == D(0)
+    assert header.balance_due == D(-500)
+
+
+def test_tax_rounds_half_up_at_the_half_rupiah_boundary():
+    line = resolve_line(D(1), D(50), "amount", D(0), D(0))
+    header = resolve_header([line], D(1), D(0))  # 50 * 1% = 0.50 -> rounds up to 1
+    assert header.tax_amount == D(1)
