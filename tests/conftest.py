@@ -61,6 +61,10 @@ def _clean_slate(db):
     db.execute(text("DELETE FROM invoices"))
     db.execute(text("DELETE FROM invoice_number_counters"))
     db.execute(text("DELETE FROM sessions"))
+    # reconciliations/generated_reports/api_keys all FK to users; must go before it.
+    db.execute(text("DELETE FROM reconciliations"))
+    db.execute(text("DELETE FROM generated_reports"))
+    db.execute(text("DELETE FROM api_keys"))
     db.execute(text("DELETE FROM users"))
     db.commit()
 
