@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+{% block title %}Reconciliation Report — Posting{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-2xl font-semibold">{{ reconciliation.account.code }} — {{ reconciliation.account.name }}</h1>
+  <a href="/reconciliation/{{ reconciliation.account_id }}/history" class="text-sm underline">Reconciliation history</a>
+</div>
+<p class="text-muted-foreground mb-6">Statement date {{ reconciliation.statement_date }}</p>
+
+{% if reconciliation.status == "undone" %}
+<div class="mb-4 rounded-md border border-destructive bg-destructive text-destructive-foreground px-4 py-2 text-sm">
+  This reconciliation was undone. Its cleared transactions are no longer locked.
+</div>
+{% endif %}
+
+<div class="grid grid-cols-3 gap-4 mb-6 max-w-2xl">
+  <div class="rounded-md border border-border p-3">
+    <p class="text-xs text-muted-foreground">Starting balance</p>
+    <p class="font-mono text-sm">{{ "%.2f"|format(diff.starting_balance) }}</p>
+  </div>
+  <div class="rounded-md border border-border p-3">
+    <p class="text-xs text-muted-foreground">Ending balance</p>
+    <p class="font-mono text-sm">{{ "%.2f"|format(reconciliation.statement_ending_balance) }}</p>
+  </div>
+  <div class="rounded-md border border-border p-3">
+    <p class="text-xs text-muted-foreground">Difference</p>
+    <p class="font-mono text-sm {% if not diff.is_balanced %}text-destructive font-medium{% endif %}">{{ "%.2f"|format(diff.difference) }}</p>
+  </div>
+</div>
+
+<p class="text-sm {% if diff.is_balanced %}text-muted-foreground{% else %}text-destructive font-medium{% endif %} mb-6">
+  {% if diff.is_balanced %}Starting balance + cleared deposits − cleared withdrawals = statement ending balance.{% else %}This reconciliation does not currently balance.{% endif %}
+</p>
+
+<h2 class="text-lg font-medium mb-3">Cleared items</h2>
+<table class="w-full text-sm rounded-lg border border-border overflow-hidden mb-6">
+  <thead>
+    <tr class="border-b border-border text-left text-muted-foreground">
+      <th class="px-3 py-2 font-medium">Date</th>
+      <th class="px-3 py-2 font-medium">Memo</th>
+      <th class="px-3 py-2 font-medium text-right">Debit</th>
+      <th class="px-3 py-2 font-medium text-right">Credit</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in diff.cleared_lines %}
+    <tr class="border-b border-border">
+      <td class="px-3 py-2"><a class="underline" href="/journal-entries/{{ line.journal_entry.id }}">{{ line.journal_entry.entry_date }}</a></td>
+      <td class="px-3 py-2">{{ line.journal_entry.memo }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(line.debit_amount) if line.debit_amount else "" }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(line.credit_amount) if line.credit_amount else "" }}</td>
+    </tr>
+    {% else %}
+    <tr><td class="px-3 py-2 text-muted-foreground" colspan="4">None.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2 class="text-lg font-medium mb-3">Outstanding items</h2>
+<table class="w-full text-sm rounded-lg border border-border overflow-hidden mb-6">
+  <thead>
+    <tr class="border-b border-border text-left text-muted-foreground">
+      <th class="px-3 py-2 font-medium">Date</th>
+      <th class="px-3 py-2 font-medium">Memo</th>
+      <th class="px-3 py-2 font-medium text-right">Debit</th>
+      <th class="px-3 py-2 font-medium text-right">Credit</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in diff.outstanding_lines %}
+    <tr class="border-b border-border">
+      <td class="px-3 py-2"><a class="underline" href="/journal-entries/{{ line.journal_entry.id }}">{{ line.journal_entry.entry_date }}</a></td>
+      <td class="px-3 py-2">{{ line.journal_entry.memo }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(line.debit_amount) if line.debit_amount else "" }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(line.credit_amount) if line.credit_amount else "" }}</td>
+    </tr>
+    {% else %}
+    <tr><td class="px-3 py-2 text-muted-foreground" colspan="4">None — carries forward into the next reconciliation.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if reconciliation.status == "completed" %}
+<p class="text-sm text-muted-foreground mb-4">
+  Completed {{ reconciliation.completed_at }}{% if reconciliation.completed_by_user %} by {{ reconciliation.completed_by_user.email }}{% endif %}.
+</p>
+{% if current_user.is_admin %}
+<a href="/reconciliation/{{ reconciliation.id }}/undo" class="text-sm underline text-destructive">Undo reconciliation</a>
+{% endif %}
+{% endif %}
+{% endblock %}

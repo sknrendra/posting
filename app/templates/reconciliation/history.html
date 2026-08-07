@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block title %}{{ account.code }} Reconciliation History — Posting{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-2xl font-semibold">{{ account.code }} — {{ account.name }}</h1>
+  <a href="/reconciliation" class="text-sm underline">Back to reconciliation</a>
+</div>
+<p class="text-muted-foreground mb-6">Reconciliation history</p>
+
+<table class="w-full text-sm rounded-lg border border-border overflow-hidden">
+  <thead>
+    <tr class="border-b border-border text-left text-muted-foreground">
+      <th class="px-3 py-2 font-medium">Statement date</th>
+      <th class="px-3 py-2 font-medium text-right">Starting balance</th>
+      <th class="px-3 py-2 font-medium text-right">Ending balance</th>
+      <th class="px-3 py-2 font-medium">Status</th>
+      <th class="px-3 py-2 font-medium">Completed</th>
+      <th class="px-3 py-2 font-medium"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for recon in history %}
+    <tr class="border-b border-border">
+      <td class="px-3 py-2"><a class="underline" href="/reconciliation/{{ recon.id }}">{{ recon.statement_date }}</a></td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(recon.starting_balance) }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(recon.statement_ending_balance) }}</td>
+      <td class="px-3 py-2 capitalize">{{ recon.status.replace("_", " ") }}</td>
+      <td class="px-3 py-2">{{ recon.completed_at.date() if recon.completed_at else "—" }}</td>
+      <td class="px-3 py-2 text-right">
+        {% if recon.status == "completed" and current_user.is_admin %}
+        <a class="underline text-destructive" href="/reconciliation/{{ recon.id }}/undo">Undo</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td class="px-3 py-2 text-muted-foreground" colspan="6">No reconciliations yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

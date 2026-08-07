@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, SQLiteDecimal, TimestampMixin
 
 SOURCES = ("manual", "webhook", "invoice")
+CLEARED_STATUSES = ("uncleared", "cleared")
 
 
 class JournalEntry(Base, TimestampMixin):
@@ -51,6 +52,9 @@ class JournalLine(Base):
             "CAST(debit_amount AS NUMERIC) > 0 OR CAST(credit_amount AS NUMERIC) > 0",
             name="ck_journal_lines_nonzero",
         ),
+        CheckConstraint(
+            f"cleared_status IN {CLEARED_STATUSES}", name="ck_journal_lines_cleared_status"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -61,6 +65,11 @@ class JournalLine(Base):
     debit_amount: Mapped[Decimal] = mapped_column(SQLiteDecimal(2), default=Decimal("0"), nullable=False)
     credit_amount: Mapped[Decimal] = mapped_column(SQLiteDecimal(2), default=Decimal("0"), nullable=False)
     memo: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    cleared_status: Mapped[str] = mapped_column(String(20), nullable=False, default="uncleared")
+    reconciliation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("reconciliations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     journal_entry: Mapped["JournalEntry"] = relationship(back_populates="lines")
     account: Mapped["Account"] = relationship()
+    reconciliation: Mapped["Reconciliation | None"] = relationship(back_populates="cleared_lines")

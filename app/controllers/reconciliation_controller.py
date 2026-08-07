@@ -5,128 +5,297 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session as DbSession
 
-from app.dependencies import get_db, require_login, verify_csrf
+from app.dependencies import get_db, require_admin, require_login, verify_csrf
 from app.models.user import User
-from app.services import reconciliation_service
+from app.services import account_service, reconciliation_service
 from app.services.reconciliation_service import ReconciliationError
 from app.templating import templates
-from app.utils import periods as period_utils
 
 router = APIRouter(prefix="/reconciliation")
+
+LINES_PER_PAGE = 25
+
+
+def _parse_decimal(raw: str) -> Decimal:
+    raw = (raw or "").strip()
+    try:
+        return Decimal(raw)
+    except InvalidOperation:
+        raise ReconciliationError(f"'{raw}' is not a valid amount")
+
+
+def _parse_date(raw: str) -> date_cls:
+    raw = (raw or "").strip()
+    try:
+        return date_cls.fromisoformat(raw)
+    except ValueError:
+        raise ReconciliationError(f"'{raw}' is not a valid date")
+
+
+def _get_reconciliation_or_404(db: DbSession, reconciliation_id: int):
+    reconciliation = reconciliation_service.get_reconciliation(db, reconciliation_id)
+    if not reconciliation:
+        raise HTTPException(status_code=404)
+    return reconciliation
 
 
 @router.get("")
 def reconciliation_index(
-    request: Request,
-    period_type: str = "monthly",
-    current_user: User = Depends(require_login),
-    db: DbSession = Depends(get_db),
+    request: Request, current_user: User = Depends(require_login), db: DbSession = Depends(get_db)
 ):
-    if period_type not in period_utils.PERIOD_TYPES:
-        raise HTTPException(status_code=404)
-    periods = reconciliation_service.list_periods(db, period_type)
-    period_rows = [
+    accounts = reconciliation_service.list_reconcilable_accounts(db)
+    rows = [
         {
-            "period_start": start,
-            "period_end": end,
-            "status": reconciliation_service.get_period_status(db, period_type, start, end),
+            "account": account,
+            "active": reconciliation_service.get_active_reconciliation(db, account.id),
+            "latest_completed": reconciliation_service.get_latest_completed(db, account.id),
         }
-        for start, end in periods
+        for account in accounts
     ]
     return templates.TemplateResponse(
-        request,
-        "reconciliation/index.html",
-        {
-            "current_user": current_user,
-            "period_type": period_type,
-            "period_types": period_utils.PERIOD_TYPES,
-            "period_rows": period_rows,
-        },
+        request, "reconciliation/index.html", {"current_user": current_user, "rows": rows}
     )
 
 
-@router.get("/{period_type}/{period_start}")
-def reconciliation_detail(
+@router.get("/{account_id}/new")
+def new_reconciliation_form(
     request: Request,
-    period_type: str,
-    period_start: str,
-    current_user: User = Depends(require_login),
-    db: DbSession = Depends(get_db),
-):
-    if period_type not in period_utils.PERIOD_TYPES:
-        raise HTTPException(status_code=404)
-    start_date = date_cls.fromisoformat(period_start)
-    start, end = period_utils.period_bounds(period_type, start_date)
-    rows = reconciliation_service.get_reconciliation_rows(db, period_type, start, end)
-    status = reconciliation_service.get_period_status(db, period_type, start, end)
-    return templates.TemplateResponse(
-        request,
-        "reconciliation/detail.html",
-        {
-            "current_user": current_user,
-            "period_type": period_type,
-            "period_start": start,
-            "period_end": end,
-            "rows": rows,
-            "status": status,
-        },
-    )
-
-
-@router.post("/{period_type}/{period_start}/{account_id}", dependencies=[Depends(verify_csrf)])
-async def submit_statement_balance(
-    request: Request,
-    period_type: str,
-    period_start: str,
     account_id: int,
     current_user: User = Depends(require_login),
     db: DbSession = Depends(get_db),
 ):
-    if period_type not in period_utils.PERIOD_TYPES:
+    account = account_service.get_account(db, account_id)
+    if not account:
         raise HTTPException(status_code=404)
-    start_date = date_cls.fromisoformat(period_start)
-    start, end = period_utils.period_bounds(period_type, start_date)
+    active = reconciliation_service.get_active_reconciliation(db, account_id)
+    if active:
+        return RedirectResponse(url=f"/reconciliation/{active.id}", status_code=303)
+    starting_balance = reconciliation_service.get_expected_starting_balance(db, account_id)
+    warning = reconciliation_service.get_continuity_warning(db, account)
+    return templates.TemplateResponse(
+        request,
+        "reconciliation/new.html",
+        {
+            "current_user": current_user,
+            "account": account,
+            "starting_balance": starting_balance,
+            "warning": warning,
+        },
+    )
+
+
+@router.post("/{account_id}/new", dependencies=[Depends(verify_csrf)])
+async def start_reconciliation(
+    request: Request,
+    account_id: int,
+    current_user: User = Depends(require_login),
+    db: DbSession = Depends(get_db),
+):
+    account = account_service.get_account(db, account_id)
+    if not account:
+        raise HTTPException(status_code=404)
     form = await request.form()
     try:
-        statement_balance = Decimal(str(form.get("statement_balance", "")).strip())
-    except InvalidOperation:
-        return RedirectResponse(
-            url=f"/reconciliation/{period_type}/{period_start}?error=Invalid statement balance",
-            status_code=303,
-        )
-    try:
-        reconciliation_service.submit_statement_balance(
-            db, period_type, start, end, account_id, statement_balance, current_user
+        statement_date = _parse_date(str(form.get("statement_date", "")))
+        statement_ending_balance = _parse_decimal(str(form.get("statement_ending_balance", "")))
+        reconciliation, warning = reconciliation_service.start_reconciliation(
+            db, account_id, statement_date, statement_ending_balance, current_user
         )
     except ReconciliationError as exc:
-        return RedirectResponse(
-            url=f"/reconciliation/{period_type}/{period_start}?error={exc}", status_code=303
+        starting_balance = reconciliation_service.get_expected_starting_balance(db, account_id)
+        return templates.TemplateResponse(
+            request,
+            "reconciliation/new.html",
+            {
+                "current_user": current_user,
+                "account": account,
+                "starting_balance": starting_balance,
+                "warning": None,
+                "error": str(exc),
+            },
+            status_code=422,
         )
-    return RedirectResponse(url=f"/reconciliation/{period_type}/{period_start}", status_code=303)
+    url = f"/reconciliation/{reconciliation.id}"
+    if warning:
+        url += f"?warning={warning}"
+    return RedirectResponse(url=url, status_code=303)
+
+
+@router.get("/{reconciliation_id}")
+def reconciliation_detail(
+    request: Request,
+    reconciliation_id: int,
+    page: int = 1,
+    current_user: User = Depends(require_login),
+    db: DbSession = Depends(get_db),
+):
+    reconciliation = _get_reconciliation_or_404(db, reconciliation_id)
+    diff = reconciliation_service.compute_difference(db, reconciliation)
+    if reconciliation.status == "in_progress":
+        accounts = [
+            a for a in account_service.list_accounts(db, include_inactive=False)
+            if a.id != reconciliation.account_id
+        ]
+        all_lines = reconciliation_service.get_clearable_lines(db, reconciliation)
+        total_pages = max(1, -(-len(all_lines) // LINES_PER_PAGE))
+        page = min(max(1, page), total_pages)
+        start = (page - 1) * LINES_PER_PAGE
+        lines = all_lines[start : start + LINES_PER_PAGE]
+        return templates.TemplateResponse(
+            request,
+            "reconciliation/work.html",
+            {
+                "current_user": current_user,
+                "reconciliation": reconciliation,
+                "diff": diff,
+                "lines": lines,
+                "page": page,
+                "total_pages": total_pages,
+                "counter_accounts": accounts,
+                "today": date_cls.today().isoformat(),
+            },
+        )
+    return templates.TemplateResponse(
+        request,
+        "reconciliation/summary.html",
+        {"current_user": current_user, "reconciliation": reconciliation, "diff": diff},
+    )
 
 
 @router.post(
-    "/{period_type}/{period_start}/{account_id}/confirm", dependencies=[Depends(verify_csrf)]
+    "/{reconciliation_id}/lines/{line_id}/toggle-cleared", dependencies=[Depends(verify_csrf)]
 )
-def confirm_reconciliation(
-    period_type: str,
-    period_start: str,
+async def toggle_line_cleared(
+    request: Request,
+    reconciliation_id: int,
+    line_id: int,
+    current_user: User = Depends(require_login),
+    db: DbSession = Depends(get_db),
+):
+    reconciliation = _get_reconciliation_or_404(db, reconciliation_id)
+    form = await request.form()
+    cleared = str(form.get("cleared", "")).strip().lower() == "true"
+    page = str(form.get("page", "1")).strip()
+    try:
+        reconciliation_service.toggle_line_cleared(db, reconciliation, line_id, cleared)
+    except ReconciliationError as exc:
+        return RedirectResponse(
+            url=f"/reconciliation/{reconciliation_id}?page={page}&error={exc}", status_code=303
+        )
+    return RedirectResponse(
+        url=f"/reconciliation/{reconciliation_id}?page={page}", status_code=303
+    )
+
+
+@router.post("/{reconciliation_id}/add-transaction", dependencies=[Depends(verify_csrf)])
+async def add_missing_transaction(
+    request: Request,
+    reconciliation_id: int,
+    current_user: User = Depends(require_login),
+    db: DbSession = Depends(get_db),
+):
+    reconciliation = _get_reconciliation_or_404(db, reconciliation_id)
+    form = await request.form()
+    try:
+        entry_date = _parse_date(str(form.get("entry_date", "")))
+        amount = _parse_decimal(str(form.get("amount", "")))
+        movement = str(form.get("movement", ""))
+        counter_account_id = int(form.get("counter_account_id", "0"))
+        memo = str(form.get("memo", "")).strip()
+        if not memo:
+            raise ReconciliationError("Memo is required")
+        reconciliation_service.add_missing_transaction(
+            db,
+            reconciliation,
+            counter_account_id=counter_account_id,
+            amount=amount,
+            movement=movement,
+            entry_date=entry_date,
+            memo=memo,
+            user=current_user,
+        )
+    except (ReconciliationError, ValueError) as exc:
+        return RedirectResponse(
+            url=f"/reconciliation/{reconciliation_id}?error={exc}", status_code=303
+        )
+    return RedirectResponse(
+        url=f"/reconciliation/{reconciliation_id}?ok=Transaction added", status_code=303
+    )
+
+
+@router.post("/{reconciliation_id}/complete", dependencies=[Depends(verify_csrf)])
+def complete_reconciliation(
+    reconciliation_id: int,
+    current_user: User = Depends(require_login),
+    db: DbSession = Depends(get_db),
+):
+    reconciliation = _get_reconciliation_or_404(db, reconciliation_id)
+    try:
+        reconciliation_service.complete_reconciliation(db, reconciliation, current_user)
+    except ReconciliationError as exc:
+        return RedirectResponse(
+            url=f"/reconciliation/{reconciliation_id}?error={exc}", status_code=303
+        )
+    return RedirectResponse(
+        url=f"/reconciliation/{reconciliation_id}?ok=Reconciliation completed", status_code=303
+    )
+
+
+@router.get("/{reconciliation_id}/undo")
+def undo_reconciliation_form(
+    request: Request,
+    reconciliation_id: int,
+    current_user: User = Depends(require_admin),
+    db: DbSession = Depends(get_db),
+):
+    reconciliation = _get_reconciliation_or_404(db, reconciliation_id)
+    later = (
+        reconciliation_service.get_history(db, reconciliation.account_id)
+        if reconciliation.status == "completed"
+        else []
+    )
+    later = [
+        r for r in later if r.status == "completed" and r.statement_date > reconciliation.statement_date
+    ]
+    return templates.TemplateResponse(
+        request,
+        "reconciliation/undo_confirm.html",
+        {"current_user": current_user, "reconciliation": reconciliation, "later": later},
+    )
+
+
+@router.post("/{reconciliation_id}/undo", dependencies=[Depends(verify_csrf)])
+def undo_reconciliation(
+    reconciliation_id: int,
+    current_user: User = Depends(require_admin),
+    db: DbSession = Depends(get_db),
+):
+    reconciliation = _get_reconciliation_or_404(db, reconciliation_id)
+    try:
+        reconciliation_service.undo_reconciliation(db, reconciliation, current_user)
+    except ReconciliationError as exc:
+        return RedirectResponse(
+            url=f"/reconciliation/{reconciliation_id}?error={exc}", status_code=303
+        )
+    return RedirectResponse(
+        url=f"/reconciliation/{reconciliation.account_id}/history?ok=Reconciliation undone",
+        status_code=303,
+    )
+
+
+@router.get("/{account_id}/history")
+def reconciliation_history(
+    request: Request,
     account_id: int,
     current_user: User = Depends(require_login),
     db: DbSession = Depends(get_db),
 ):
-    if period_type not in period_utils.PERIOD_TYPES:
+    account = account_service.get_account(db, account_id)
+    if not account:
         raise HTTPException(status_code=404)
-    start_date = date_cls.fromisoformat(period_start)
-    start, end = period_utils.period_bounds(period_type, start_date)
-    try:
-        reconciliation_service.confirm_reconciliation(
-            db, period_type, start, end, account_id, current_user
-        )
-    except ReconciliationError as exc:
-        return RedirectResponse(
-            url=f"/reconciliation/{period_type}/{period_start}?error={exc}", status_code=303
-        )
-    return RedirectResponse(
-        url=f"/reconciliation/{period_type}/{period_start}?ok=Reconciled", status_code=303
+    history = reconciliation_service.get_history(db, account_id)
+    return templates.TemplateResponse(
+        request,
+        "reconciliation/history.html",
+        {"current_user": current_user, "account": account, "history": history},
     )
