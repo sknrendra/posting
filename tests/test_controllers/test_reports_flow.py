@@ -21,16 +21,16 @@ def _fully_reconcile_a_period(db, test_user):
     cash = account_service.create_account(
         db, f"REP-CASH-{next(_seq)}", "Test Cash", "asset", is_cash_account=True
     )
-    reconciliation_service.submit_statement_balance(
-        db, "monthly", CLOSED_START, CLOSED_END, cash.id, D(0), test_user
+    reconciliation, _warning = reconciliation_service.start_reconciliation(
+        db, cash.id, CLOSED_END, D(0), test_user
     )
-    reconciliation_service.confirm_reconciliation(db, "monthly", CLOSED_START, CLOSED_END, cash.id, test_user)
+    reconciliation_service.complete_reconciliation(db, reconciliation, test_user)
     return cash
 
 
 @pytest.fixture()
 def no_cash_accounts(db):
-    active = reconciliation_service.get_cash_accounts(db)
+    active = reconciliation_service.list_reconcilable_accounts(db)
     for account in active:
         account_service.set_active(db, account, False)
     yield

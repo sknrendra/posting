@@ -81,7 +81,7 @@ def test_create_account_normal_balance_by_type(db, account_type, expected_normal
 def test_create_account_is_cash_account_flag(db):
     account = account_service.create_account(db, _code(), "Cash", "asset", is_cash_account=True)
     assert account.is_cash_account is True
-    assert account in reconciliation_service.get_cash_accounts(db)
+    assert account in reconciliation_service.list_reconcilable_accounts(db)
 
 
 def test_create_account_description_none(db):
@@ -129,9 +129,9 @@ def test_update_account_clears_description(db):
 
 def test_update_account_toggle_cash_off_removes_from_cash_accounts(db):
     account = account_service.create_account(db, _code(), "X", "asset", is_cash_account=True)
-    assert account in reconciliation_service.get_cash_accounts(db)
+    assert account in reconciliation_service.list_reconcilable_accounts(db)
     account_service.update_account(db, account, "X", None, False)
-    assert account not in reconciliation_service.get_cash_accounts(db)
+    assert account not in reconciliation_service.list_reconcilable_accounts(db)
 
 
 # --- set_active --------------------------------------------------------

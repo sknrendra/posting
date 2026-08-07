@@ -33,7 +33,7 @@ accounts with unique `code`s rather than assuming a pristine accounts table.
 | P3 | `account_type="equity"` | `normal_balance="credit"` |
 | P4 | `account_type="revenue"` | `normal_balance="credit"` |
 | P5 | `account_type="expense"` | `normal_balance="debit"` |
-| P6 | `is_cash_account=True` | Persisted; account later appears in `reconciliation_service.get_cash_accounts` |
+| P6 | `is_cash_account=True` | Persisted; account later appears in `reconciliation_service.list_reconcilable_accounts` |
 | P7 | `description=None` | Persisted as `NULL`, no error |
 | P8 | New account defaults `is_active=True` | Immediately visible in `list_accounts(include_inactive=False)` |
 | N1 | Duplicate `code` | `IntegrityError` from the `unique=True` constraint on `Account.code` (not caught/translated by the service — assert the raw DB exception propagates) |
@@ -45,7 +45,7 @@ accounts with unique `code`s rather than assuming a pristine accounts table.
 |---|------|----------|
 | P1 | Update `name`, `description`, `is_cash_account` on an existing account | Fields updated, `code`/`account_type`/`normal_balance` untouched (not settable via this function) |
 | P2 | `description=None` clears a previously-set description | Persisted as `NULL` |
-| P3 | Toggling `is_cash_account` True→False | Account drops out of `get_cash_accounts` results |
+| P3 | Toggling `is_cash_account` True→False | Account drops out of `list_reconcilable_accounts` results |
 
 ## `set_active`
 

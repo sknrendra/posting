@@ -43,7 +43,7 @@ def _within_period():
 def no_cash_accounts(db):
     """Cash accounts persist across tests, so full-reconciliation gating tests
     need a clean slate to make `get_period_status` deterministic."""
-    active = reconciliation_service.get_cash_accounts(db)
+    active = reconciliation_service.list_reconcilable_accounts(db)
     for account in active:
         account_service.set_active(db, account, False)
     yield
@@ -245,7 +245,7 @@ def test_cash_flow_accumulates_same_contra_across_entries(db):
 
 
 def test_cash_flow_no_cash_accounts(db):
-    active_cash = reconciliation_service.get_cash_accounts(db)
+    active_cash = reconciliation_service.list_reconcilable_accounts(db)
     for acc in active_cash:
         account_service.set_active(db, acc, False)
     try:
@@ -307,10 +307,10 @@ def test_get_generated_report_partial_filter_match_returns_none(db, test_user, n
 
 def _make_reconciled_period(db, user):
     cash = _account(db, "asset", is_cash=True)
-    reconciliation_service.submit_statement_balance(
-        db, "monthly", PERIOD_START, PERIOD_END, cash.id, D(0), user
+    reconciliation, _warning = reconciliation_service.start_reconciliation(
+        db, cash.id, PERIOD_END, D(0), user
     )
-    reconciliation_service.confirm_reconciliation(db, "monthly", PERIOD_START, PERIOD_END, cash.id, user)
+    reconciliation_service.complete_reconciliation(db, reconciliation, user)
     return cash
 
 
