@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block title %}Undo Reconciliation — Posting{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-2">Undo reconciliation</h1>
+<p class="text-muted-foreground mb-6">
+  {{ reconciliation.account.code }} — {{ reconciliation.account.name }} · statement date {{ reconciliation.statement_date }} ·
+  ending balance {{ "%.2f"|format(reconciliation.statement_ending_balance) }}
+</p>
+
+<div class="mb-4 rounded-md border border-destructive bg-destructive text-destructive-foreground px-4 py-2 text-sm max-w-xl">
+  This will unlock every cleared transaction this reconciliation locked, so they can be cleared again in a future reconciliation. This action is permissioned to admins.
+</div>
+
+{% if later %}
+<div class="mb-6 rounded-md border border-destructive bg-destructive text-destructive-foreground px-4 py-2 text-sm max-w-xl">
+  <p class="font-medium mb-1">Warning: later completed reconciliations exist for this account.</p>
+  <p class="mb-2">Undoing this one may break their continuity (their starting balance was locked to this one's ending balance):</p>
+  <ul class="list-disc list-inside">
+    {% for r in later %}
+    <li><a class="underline" href="/reconciliation/{{ r.id }}">{{ r.statement_date }} — {{ "%.2f"|format(r.statement_ending_balance) }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<form method="post" action="/reconciliation/{{ reconciliation.id }}/undo">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <button type="submit" class="rounded-md bg-destructive text-destructive-foreground px-4 py-2 text-sm font-medium hover:bg-destructive/90">Confirm undo</button>
+  <a href="/reconciliation/{{ reconciliation.id }}" class="rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground ml-2">Cancel</a>
+</form>
+{% endblock %}

@@ -3,7 +3,13 @@
 {% block content %}
 <div class="flex items-center justify-between mb-2">
   <h1 class="text-2xl font-semibold">{{ account.code }} — {{ account.name }}</h1>
-  <a href="/ledger" class="text-sm underline">All accounts</a>
+  <div class="text-sm">
+    {% if account.is_cash_account %}
+    <a href="/reconciliation/{{ account.id }}/history" class="underline">Reconciliation history</a>
+    <span class="mx-2 text-muted-foreground">·</span>
+    {% endif %}
+    <a href="/ledger" class="underline">All accounts</a>
+  </div>
 </div>
 <p class="text-muted-foreground mb-6 capitalize">{{ account.account_type }} · normal balance: {{ account.normal_balance }}</p>
 

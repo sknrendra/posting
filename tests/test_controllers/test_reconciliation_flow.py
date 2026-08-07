@@ -1,150 +1,163 @@
-import itertools
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal as D
 
-import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
-from app.services import account_service, journal_service, reconciliation_service
+from app.models.account import Account
+from app.services import journal_service, reconciliation_service
 from app.services.journal_service import LineInput
-from app.utils import periods as period_utils
-
-_seq = itertools.count()
-
-TODAY = date.today()
-_PREV_MONTH_ANCHOR = TODAY.replace(day=1) - timedelta(days=1)
-CLOSED_START, CLOSED_END = period_utils.month_bounds(_PREV_MONTH_ANCHOR)
-OPEN_START, OPEN_END = period_utils.month_bounds(TODAY)
 
 
-def _cash_account(db):
-    return account_service.create_account(
-        db, f"RC-CASH-{next(_seq)}", "Test Cash", "asset", is_cash_account=True
-    )
+def _account(db, code):
+    return db.query(Account).filter(Account.code == code).first()
 
 
-def _post_closed_period_activity(db, cash, amount=D(100)):
-    revenue = account_service.create_account(db, f"RC-REV-{next(_seq)}", "Test Revenue", "revenue")
-    journal_service.post_entry(
+def _post(db, entry_date, cash_code, other_code, amount, cash_is_debit, memo="txn"):
+    cash = _account(db, cash_code)
+    other = _account(db, other_code)
+    if cash_is_debit:
+        cash_debit, cash_credit = amount, D("0")
+        other_debit, other_credit = D("0"), amount
+    else:
+        cash_debit, cash_credit = D("0"), amount
+        other_debit, other_credit = amount, D("0")
+    entry, _created = journal_service.post_entry(
         db,
-        entry_date=CLOSED_START,
-        memo="x",
+        entry_date=entry_date,
+        memo=memo,
         lines=[
-            LineInput(account_id=cash.id, debit_amount=amount, credit_amount=D(0)),
-            LineInput(account_id=revenue.id, debit_amount=D(0), credit_amount=amount),
+            LineInput(account_id=cash.id, debit_amount=cash_debit, credit_amount=cash_credit, memo=memo),
+            LineInput(account_id=other.id, debit_amount=other_debit, credit_amount=other_credit, memo=memo),
         ],
         source="manual",
     )
+    return entry
 
 
-def test_reconciliation_index_default(client):
-    resp = client.get("/reconciliation")
-    assert resp.status_code == 200
-
-
-def test_reconciliation_index_quarterly_annual(client):
-    assert client.get("/reconciliation?period_type=quarterly").status_code == 200
-    assert client.get("/reconciliation?period_type=annual").status_code == 200
-
-
-def test_reconciliation_index_invalid_period_type_404(client):
-    resp = client.get("/reconciliation?period_type=weekly")
-    assert resp.status_code == 404
-
-
-def test_reconciliation_detail_closed_period(client, db):
-    cash = _cash_account(db)
-    _post_closed_period_activity(db, cash)
-    resp = client.get(f"/reconciliation/monthly/{CLOSED_START.isoformat()}")
-    assert resp.status_code == 200
-
-
-def test_reconciliation_detail_invalid_period_type_404(client):
-    resp = client.get(f"/reconciliation/weekly/{CLOSED_START.isoformat()}")
-    assert resp.status_code == 404
-
-
-def test_submit_statement_balance_success(client, db):
-    cash = _cash_account(db)
-    client.get("/reconciliation")
+def _start(client, account_id, statement_date, statement_ending_balance):
+    client.get(f"/reconciliation/{account_id}/new")
     csrf = client.cookies.get("csrf_token")
     resp = client.post(
-        f"/reconciliation/monthly/{CLOSED_START.isoformat()}/{cash.id}",
-        data={"csrf_token": csrf, "statement_balance": "500"},
+        f"/reconciliation/{account_id}/new",
+        data={
+            "csrf_token": csrf,
+            "statement_date": statement_date,
+            "statement_ending_balance": statement_ending_balance,
+        },
         follow_redirects=False,
     )
-    assert resp.status_code == 303
-    assert "error" not in resp.headers["location"]
+    reconciliation_id = int(resp.headers["location"].split("/reconciliation/")[1].split("?")[0])
+    return reconciliation_id, csrf
 
 
-def test_submit_statement_balance_invalid_amount(client, db):
-    cash = _cash_account(db)
-    client.get("/reconciliation")
-    csrf = client.cookies.get("csrf_token")
-    resp = client.post(
-        f"/reconciliation/monthly/{CLOSED_START.isoformat()}/{cash.id}",
-        data={"csrf_token": csrf, "statement_balance": "not-a-number"},
+def test_start_work_toggle_complete_flow(client, db):
+    account = _account(db, "1020")
+    entry = _post(db, date(2026, 1, 5), "1020", "4000", D("500.00"), cash_is_debit=True)
+
+    reconciliation_id, csrf = _start(client, account.id, "2026-01-31", "500.00")
+
+    work_resp = client.get(f"/reconciliation/{reconciliation_id}")
+    assert work_resp.status_code == 200
+    assert "Complete reconciliation" in work_resp.text
+
+    line = next(l for l in entry.lines if l.account_id == account.id)
+    toggle_resp = client.post(
+        f"/reconciliation/{reconciliation_id}/lines/{line.id}/toggle-cleared",
+        data={"csrf_token": csrf, "cleared": "true"},
         follow_redirects=False,
     )
-    assert resp.status_code == 303
-    assert "Invalid+statement+balance" in resp.headers["location"] or "Invalid%20statement%20balance" in resp.headers["location"]
+    assert toggle_resp.status_code == 303
 
-
-def test_submit_statement_balance_period_not_closed(client, db):
-    cash = _cash_account(db)
-    client.get("/reconciliation")
-    csrf = client.cookies.get("csrf_token")
-    resp = client.post(
-        f"/reconciliation/monthly/{OPEN_START.isoformat()}/{cash.id}",
-        data={"csrf_token": csrf, "statement_balance": "0"},
+    complete_resp = client.post(
+        f"/reconciliation/{reconciliation_id}/complete",
+        data={"csrf_token": csrf},
         follow_redirects=False,
     )
-    assert resp.status_code == 303
-    assert "error" in resp.headers["location"]
+    assert complete_resp.status_code == 303
+    assert "error" not in complete_resp.headers["location"]
+
+    summary_resp = client.get(f"/reconciliation/{reconciliation_id}")
+    assert summary_resp.status_code == 200
+    assert "Completed" in summary_resp.text
 
 
-def test_confirm_reconciliation_success(client, db):
-    cash = _cash_account(db)
-    _post_closed_period_activity(db, cash)
-    client.get("/reconciliation")
-    csrf = client.cookies.get("csrf_token")
+def test_add_missing_transaction_mid_flow(client, db):
+    account = _account(db, "1020")
+    fee_account = _account(db, "5100")
+
+    reconciliation_id, csrf = _start(client, account.id, "2026-01-31", "-25.00")
+
+    add_resp = client.post(
+        f"/reconciliation/{reconciliation_id}/add-transaction",
+        data={
+            "csrf_token": csrf,
+            "entry_date": "2026-01-20",
+            "movement": "withdrawal",
+            "amount": "25.00",
+            "counter_account_id": str(fee_account.id),
+            "memo": "Bank fee",
+        },
+        follow_redirects=False,
+    )
+    assert add_resp.status_code == 303
+    assert "error" not in add_resp.headers["location"]
+
+    work_resp = client.get(f"/reconciliation/{reconciliation_id}")
+    assert "Bank fee" in work_resp.text
+
+    recon = reconciliation_service.get_reconciliation(db, reconciliation_id)
+    diff = reconciliation_service.compute_difference(db, recon)
+    assert diff["is_balanced"]
+
+
+def test_complete_out_of_balance_redirects_with_error(client, db):
+    account = _account(db, "1020")
+    _post(db, date(2026, 1, 5), "1020", "4000", D("500.00"), cash_is_debit=True)
+
+    reconciliation_id, csrf = _start(client, account.id, "2026-01-31", "500.00")
+
+    complete_resp = client.post(
+        f"/reconciliation/{reconciliation_id}/complete",
+        data={"csrf_token": csrf},
+        follow_redirects=False,
+    )
+    assert complete_resp.status_code == 303
+    assert "error=" in complete_resp.headers["location"]
+
+
+def test_undo_requires_admin(client, admin_client, db):
+    account = _account(db, "1020")
+    entry = _post(db, date(2026, 1, 5), "1020", "4000", D("500.00"), cash_is_debit=True)
+
+    reconciliation_id, csrf = _start(client, account.id, "2026-01-31", "500.00")
+    line = next(l for l in entry.lines if l.account_id == account.id)
     client.post(
-        f"/reconciliation/monthly/{CLOSED_START.isoformat()}/{cash.id}",
-        data={"csrf_token": csrf, "statement_balance": "100"},
+        f"/reconciliation/{reconciliation_id}/lines/{line.id}/toggle-cleared",
+        data={"csrf_token": csrf, "cleared": "true"},
         follow_redirects=False,
     )
-    resp = client.post(
-        f"/reconciliation/monthly/{CLOSED_START.isoformat()}/{cash.id}/confirm",
+    client.post(
+        f"/reconciliation/{reconciliation_id}/complete",
         data={"csrf_token": csrf},
         follow_redirects=False,
     )
-    assert resp.status_code == 303
-    assert "ok=Reconciled" in resp.headers["location"]
 
+    non_admin_resp = client.get(f"/reconciliation/{reconciliation_id}/undo")
+    assert non_admin_resp.status_code == 403
 
-def test_confirm_reconciliation_without_submission_error(client, db):
-    cash = _cash_account(db)
-    client.get("/reconciliation")
-    csrf = client.cookies.get("csrf_token")
-    resp = client.post(
-        f"/reconciliation/monthly/{CLOSED_START.isoformat()}/{cash.id}/confirm",
-        data={"csrf_token": csrf},
+    admin_get = admin_client.get(f"/reconciliation/{reconciliation_id}/undo")
+    assert admin_get.status_code == 200
+    admin_csrf = admin_client.cookies.get("csrf_token")
+    admin_post = admin_client.post(
+        f"/reconciliation/{reconciliation_id}/undo",
+        data={"csrf_token": admin_csrf},
         follow_redirects=False,
     )
-    assert resp.status_code == 303
-    assert "error" in resp.headers["location"]
+    assert admin_post.status_code == 303
+    assert "error" not in admin_post.headers["location"]
+
+    history_resp = admin_client.get(f"/reconciliation/{account.id}/history")
+    assert "undone" in history_resp.text.lower()
 
 
-def test_reconciliation_detail_invalid_period_start_currently_crashes(client):
-    """Documents an existing gap: reconciliation_detail parses period_start
-    with a bare date.fromisoformat(...), no try/except — raises uncaught."""
-    with pytest.raises(ValueError):
-        client.get("/reconciliation/monthly/not-a-date")
-
-
-def test_reconciliation_unauthenticated_redirects_to_login():
-    unauth_client = TestClient(app)
-    resp = unauth_client.get("/reconciliation", follow_redirects=False)
-    assert resp.status_code == 303
-    assert resp.headers["location"] == "/login"
+def test_reports_index_still_renders_after_rewrite(client):
+    resp = client.get("/reports")
+    assert resp.status_code == 200

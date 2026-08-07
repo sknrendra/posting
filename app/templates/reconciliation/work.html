@@ -1,0 +1,157 @@
+{% extends "layout.html" %}
+{% block title %}Reconciling {{ reconciliation.account.code }} — Posting{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-2xl font-semibold">{{ reconciliation.account.code }} — {{ reconciliation.account.name }}</h1>
+  <a href="/reconciliation" class="text-sm underline">Back to reconciliation</a>
+</div>
+<p class="text-muted-foreground mb-6">Statement date {{ reconciliation.statement_date }}</p>
+
+<div class="rounded-lg border border-border overflow-hidden mb-6">
+<div class="overflow-y-hidden [scrollbar-gutter:stable]">
+<table class="w-full text-sm table-fixed">
+  <colgroup>
+    <col class="w-10" /><col class="w-28" /><col /><col class="w-28" /><col class="w-28" />
+  </colgroup>
+  <thead>
+    <tr class="border-b border-border text-left text-muted-foreground">
+      <th class="px-3 py-2 font-medium"></th>
+      <th class="px-3 py-2 font-medium">Date</th>
+      <th class="px-3 py-2 font-medium">Memo</th>
+      <th class="px-3 py-2 font-medium text-right">Debit</th>
+      <th class="px-3 py-2 font-medium text-right">Credit</th>
+    </tr>
+  </thead>
+</table>
+</div>
+
+<div class="overflow-y-auto max-h-60 [scrollbar-gutter:stable]">
+<table class="w-full text-sm table-fixed">
+  <colgroup>
+    <col class="w-10" /><col class="w-28" /><col /><col class="w-28" /><col class="w-28" />
+  </colgroup>
+  <tbody>
+    {% for line in lines %}
+    <tr class="border-b border-border">
+      <td class="px-3 py-2">
+        <form method="post" action="/reconciliation/{{ reconciliation.id }}/lines/{{ line.id }}/toggle-cleared">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <input type="hidden" name="cleared" value="{{ 'false' if line.cleared_status == 'cleared' else 'true' }}" />
+          <input type="hidden" name="page" value="{{ page }}" />
+          <input type="checkbox" onchange="this.form.requestSubmit()" {% if line.cleared_status == 'cleared' %}checked{% endif %} />
+        </form>
+      </td>
+      <td class="px-3 py-2"><a class="underline" href="/journal-entries/{{ line.journal_entry.id }}">{{ line.journal_entry.entry_date }}</a></td>
+      <td class="px-3 py-2 truncate">{{ line.journal_entry.memo }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(line.debit_amount) if line.debit_amount else "" }}</td>
+      <td class="px-3 py-2 text-right font-mono">{{ "%.2f"|format(line.credit_amount) if line.credit_amount else "" }}</td>
+    </tr>
+    {% else %}
+    <tr><td class="px-3 py-2 text-muted-foreground" colspan="5">No transactions on or before the statement date.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="overflow-y-hidden [scrollbar-gutter:stable]">
+<table class="w-full text-sm table-fixed">
+  <colgroup>
+    <col class="w-10" /><col class="w-28" /><col /><col class="w-28" /><col class="w-28" />
+  </colgroup>
+  <tfoot class="bg-muted/30 text-muted-foreground">
+    <tr class="border-t border-border">
+      <td class="px-3 py-2" colspan="3">Starting balance</td>
+      <td class="px-3 py-2 text-right font-mono" colspan="2">{{ "%.2f"|format(diff.starting_balance) }}</td>
+    </tr>
+    <tr>
+      <td class="px-3 py-2" colspan="3">Cleared total</td>
+      <td class="px-3 py-2 text-right font-mono" colspan="2">{{ "%.2f"|format(diff.cleared_total) }}</td>
+    </tr>
+    <tr>
+      <td class="px-3 py-2" colspan="3">Statement ending balance</td>
+      <td class="px-3 py-2 text-right font-mono" colspan="2">{{ "%.2f"|format(diff.statement_ending_balance) }}</td>
+    </tr>
+    <tr class="border-t border-border {% if not diff.is_balanced %}text-destructive{% endif %}">
+      <td class="px-3 py-2 font-medium" colspan="3">Difference</td>
+      <td class="px-3 py-2 text-right font-mono font-medium" colspan="2">{{ "%.2f"|format(diff.difference) }}</td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+</div>
+
+{% if total_pages > 1 %}
+<div class="flex items-center justify-center gap-4 mb-6 text-sm">
+  {% if page > 1 %}
+  <a href="/reconciliation/{{ reconciliation.id }}?page={{ page - 1 }}" class="underline">Previous</a>
+  {% else %}
+  <span class="text-muted-foreground">Previous</span>
+  {% endif %}
+  <span class="text-muted-foreground">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+  <a href="/reconciliation/{{ reconciliation.id }}?page={{ page + 1 }}" class="underline">Next</a>
+  {% else %}
+  <span class="text-muted-foreground">Next</span>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="flex flex-col items-end mb-6" x-data>
+  <div class="flex items-center gap-3">
+    <button type="button" class="rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground" @click="$refs.addTransactionDialog.showModal()">Add transaction</button>
+
+    <form method="post" action="/reconciliation/{{ reconciliation.id }}/complete">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      <button type="submit" class="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary" {% if not diff.is_balanced %}disabled{% endif %}>
+        Complete reconciliation
+      </button>
+    </form>
+  </div>
+  {% if not diff.is_balanced %}<p class="text-xs text-muted-foreground mt-2">Difference must be zero to complete.</p>{% endif %}
+
+  <dialog x-ref="addTransactionDialog" class="m-auto rounded-md border border-border bg-card text-card-foreground p-6 max-w-xl w-full backdrop:bg-black/50">
+    <h2 class="text-sm font-medium mb-3">Add missing transaction</h2>
+    <p class="text-xs text-muted-foreground mb-3">For items on the bank statement but not yet in the books (fees, interest, auto-payments). Marked cleared automatically.</p>
+    <form method="post" action="/reconciliation/{{ reconciliation.id }}/add-transaction" class="space-y-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium mb-1" for="entry_date">Date</label>
+          <input class="w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                 type="date" id="entry_date" name="entry_date" value="{{ today }}" max="{{ reconciliation.statement_date }}" required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="movement">Type</label>
+          <select class="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" id="movement" name="movement">
+            <option value="deposit">Deposit</option>
+            <option value="withdrawal">Withdrawal</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="amount">Amount</label>
+          <input class="w-full rounded-md border border-input bg-transparent px-3 py-1.5 font-mono text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                 type="text" inputmode="decimal" id="amount" name="amount" placeholder="0.00" required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="counter_account_id">Other account</label>
+          <select class="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" id="counter_account_id" name="counter_account_id" required>
+            <option value=""></option>
+            {% for a in counter_accounts %}
+            <option value="{{ a.id }}">{{ a.code }} — {{ a.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1" for="memo">Memo</label>
+        <input class="w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+               type="text" id="memo" name="memo" required />
+      </div>
+      <div class="flex gap-3 justify-end">
+        <button type="button" class="rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90">Add transaction</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+{% endblock %}

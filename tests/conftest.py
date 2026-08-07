@@ -55,6 +55,7 @@ def _clean_slate(db):
     # self-references — null out every cross-reference before deleting either table.
     db.execute(text("UPDATE invoices SET journal_entry_id = NULL, void_journal_entry_id = NULL"))
     db.execute(text("UPDATE journal_entries SET reverses_entry_id = NULL"))
+    db.execute(text("UPDATE journal_lines SET reconciliation_id = NULL"))
     db.execute(text("DELETE FROM journal_lines"))
     db.execute(text("DELETE FROM journal_entries"))
     db.execute(text("DELETE FROM invoice_lines"))
@@ -75,8 +76,21 @@ def test_user(db):
 
 
 @pytest.fixture()
+def admin_user(db):
+    return auth_service.create_user(db, "admin@example.com", "password123", is_admin=True)
+
+
+@pytest.fixture()
 def client(db, test_user):
     token = auth_service.create_session(db, test_user)
+    c = TestClient(app)
+    c.cookies.set("posting_session", token)
+    return c
+
+
+@pytest.fixture()
+def admin_client(db, admin_user):
+    token = auth_service.create_session(db, admin_user)
     c = TestClient(app)
     c.cookies.set("posting_session", token)
     return c

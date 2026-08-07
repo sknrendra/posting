@@ -3,38 +3,44 @@
 {% block content %}
 <h1 class="text-2xl font-semibold mb-6">Reconciliation</h1>
 
-<div class="flex gap-2 mb-6 border-b border-border">
-  {% for t in period_types %}
-  <a href="/reconciliation?period_type={{ t }}"
-     class="px-3 py-2 text-sm capitalize border-b-2 {% if t == period_type %}border-foreground font-medium{% else %}border-transparent text-muted-foreground hover:text-foreground{% endif %}">
-    {{ t }}
-  </a>
-  {% endfor %}
-</div>
-
 <table class="w-full text-sm rounded-lg border border-border overflow-hidden">
   <thead>
     <tr class="border-b border-border text-left text-muted-foreground">
-      <th class="px-3 py-2 font-medium">Period</th>
+      <th class="px-3 py-2 font-medium">Account</th>
+      <th class="px-3 py-2 font-medium">Last reconciled</th>
       <th class="px-3 py-2 font-medium">Status</th>
       <th class="px-3 py-2 font-medium"></th>
     </tr>
   </thead>
   <tbody>
-    {% for row in period_rows %}
+    {% for row in rows %}
     <tr class="border-b border-border">
-      <td class="px-3 py-2">{{ row.period_start }} – {{ row.period_end }}</td>
+      <td class="px-3 py-2">{{ row.account.code }} — {{ row.account.name }}</td>
       <td class="px-3 py-2">
-        {% if row.status.is_complete %}Completed
-        {% else %}{{ row.status.completed }} / {{ row.status.total }} accounts reconciled
+        {% if row.latest_completed %}
+        {{ row.latest_completed.statement_date }} · {{ "%.2f"|format(row.latest_completed.statement_ending_balance) }}
+        {% else %}
+        <span class="text-muted-foreground">Never reconciled</span>
         {% endif %}
       </td>
-      <td class="px-3 py-2 text-right">
-        <a class="underline" href="/reconciliation/{{ period_type }}/{{ row.period_start }}">
-          {% if row.status.is_complete %}View{% else %}Reconcile{% endif %}
-        </a>
+      <td class="px-3 py-2">
+        {% if row.active %}
+        <span class="text-muted-foreground">In progress ({{ row.active.statement_date }})</span>
+        {% else %}
+        <span class="text-muted-foreground">—</span>
+        {% endif %}
+      </td>
+      <td class="px-3 py-2 text-right whitespace-nowrap">
+        {% if row.active %}
+        <a class="underline" href="/reconciliation/{{ row.active.id }}">Resume</a>
+        {% else %}
+        <a class="underline" href="/reconciliation/{{ row.account.id }}/new">Start new</a>
+        {% endif %}
+        <a class="underline ml-3" href="/reconciliation/{{ row.account.id }}/history">History</a>
       </td>
     </tr>
+    {% else %}
+    <tr><td class="px-3 py-2 text-muted-foreground" colspan="4">No reconcilable (cash) accounts yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
