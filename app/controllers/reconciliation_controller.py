@@ -13,6 +13,8 @@ from app.templating import templates
 
 router = APIRouter(prefix="/reconciliation")
 
+LINES_PER_PAGE = 25
+
 
 def _parse_decimal(raw: str) -> Decimal:
     raw = (raw or "").strip()
@@ -123,6 +125,7 @@ async def start_reconciliation(
 def reconciliation_detail(
     request: Request,
     reconciliation_id: int,
+    page: int = 1,
     current_user: User = Depends(require_login),
     db: DbSession = Depends(get_db),
 ):
@@ -133,7 +136,11 @@ def reconciliation_detail(
             a for a in account_service.list_accounts(db, include_inactive=False)
             if a.id != reconciliation.account_id
         ]
-        lines = reconciliation_service.get_clearable_lines(db, reconciliation)
+        all_lines = reconciliation_service.get_clearable_lines(db, reconciliation)
+        total_pages = max(1, -(-len(all_lines) // LINES_PER_PAGE))
+        page = min(max(1, page), total_pages)
+        start = (page - 1) * LINES_PER_PAGE
+        lines = all_lines[start : start + LINES_PER_PAGE]
         return templates.TemplateResponse(
             request,
             "reconciliation/work.html",
@@ -142,6 +149,8 @@ def reconciliation_detail(
                 "reconciliation": reconciliation,
                 "diff": diff,
                 "lines": lines,
+                "page": page,
+                "total_pages": total_pages,
                 "counter_accounts": accounts,
                 "today": date_cls.today().isoformat(),
             },
@@ -166,13 +175,16 @@ async def toggle_line_cleared(
     reconciliation = _get_reconciliation_or_404(db, reconciliation_id)
     form = await request.form()
     cleared = str(form.get("cleared", "")).strip().lower() == "true"
+    page = str(form.get("page", "1")).strip()
     try:
         reconciliation_service.toggle_line_cleared(db, reconciliation, line_id, cleared)
     except ReconciliationError as exc:
         return RedirectResponse(
-            url=f"/reconciliation/{reconciliation_id}?error={exc}", status_code=303
+            url=f"/reconciliation/{reconciliation_id}?page={page}&error={exc}", status_code=303
         )
-    return RedirectResponse(url=f"/reconciliation/{reconciliation_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/reconciliation/{reconciliation_id}?page={page}", status_code=303
+    )
 
 
 @router.post("/{reconciliation_id}/add-transaction", dependencies=[Depends(verify_csrf)])
