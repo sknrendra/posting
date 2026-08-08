@@ -6,7 +6,7 @@ Covers `list_accounts`, `get_account`, `create_account`, `update_account`,
 Note: `conftest.py` already seeds the default chart of accounts once at test
 session start and never deletes `accounts` between tests (`_clean_slate` only
 clears invoices/journal entries/users). Tests here must create their own
-accounts with unique `code`s rather than assuming a pristine accounts table.
+accounts with unique `accounts.code`s rather than assuming a pristine accounts table.
 
 ## `list_accounts`
 
@@ -21,7 +21,7 @@ accounts with unique `code`s rather than assuming a pristine accounts table.
 
 | # | Case | Expected |
 |---|------|----------|
-| P1 | Existing id | Returns the `Account` |
+| P1 | Existing id | Returns the correct `Account` given id |
 | N1 | Nonexistent id | Returns `None` |
 
 ## `create_account`
