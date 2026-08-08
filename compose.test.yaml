@@ -1,0 +1,9 @@
+services:
+  test:
+    build: .
+    entrypoint: []
+    command: >
+      bash -c "pip install --no-cache-dir -r requirements-dev.txt && pytest tests/"
+    volumes:
+      - ./tests:/app/tests
+      - ./requirements-dev.txt:/app/requirements-dev.txt
