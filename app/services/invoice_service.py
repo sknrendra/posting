@@ -152,6 +152,15 @@ def create_draft(db: DbSession, header: InvoiceHeaderInput, user_id: int | None)
 def update_draft(db: DbSession, invoice: Invoice, header: InvoiceHeaderInput) -> Invoice:
     if invoice.status != "draft":
         raise InvoiceNotDraftError("Only draft invoices can be edited")
+    # Flush the old lines' deletion before _apply_lines re-appends new ones —
+    # otherwise SQLAlchemy can emit the new INSERTs before the old rows are
+    # gone, colliding on the (invoice_id, line_number) unique constraint. This
+    # must happen before _apply_header_fields mutates the invoice row itself,
+    # so an invalid header (e.g. deposit > total) still fails via the clean
+    # InvoiceValidationError in _recalculate_header below rather than tripping
+    # the DB's CHECK constraint on a premature flush.
+    invoice.lines.clear()
+    db.flush()
     _apply_header_fields(invoice, header)
     results = _apply_lines(invoice, header.lines)
     _recalculate_header(invoice, results)

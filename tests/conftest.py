@@ -56,13 +56,16 @@ def _clean_slate(db):
     db.execute(text("UPDATE invoices SET journal_entry_id = NULL, void_journal_entry_id = NULL"))
     db.execute(text("UPDATE journal_entries SET reverses_entry_id = NULL"))
     db.execute(text("UPDATE journal_lines SET reconciliation_id = NULL"))
-    db.execute(text("DELETE FROM reconciliations"))
     db.execute(text("DELETE FROM journal_lines"))
     db.execute(text("DELETE FROM journal_entries"))
     db.execute(text("DELETE FROM invoice_lines"))
     db.execute(text("DELETE FROM invoices"))
     db.execute(text("DELETE FROM invoice_number_counters"))
     db.execute(text("DELETE FROM sessions"))
+    # reconciliations/generated_reports/api_keys all FK to users; must go before it.
+    db.execute(text("DELETE FROM reconciliations"))
+    db.execute(text("DELETE FROM generated_reports"))
+    db.execute(text("DELETE FROM api_keys"))
     db.execute(text("DELETE FROM users"))
     db.commit()
 

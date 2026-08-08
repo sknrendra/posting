@@ -92,7 +92,7 @@ def compute_balance_sheet(db: DbSession, period_end: date) -> dict:
 
 
 def compute_cash_flow(db: DbSession, period_start: date, period_end: date) -> dict:
-    cash_accounts = reconciliation_service.get_cash_accounts(db)
+    cash_accounts = reconciliation_service.list_reconcilable_accounts(db)
     result_accounts = []
 
     for cash_account in cash_accounts:

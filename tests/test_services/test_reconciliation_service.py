@@ -341,3 +341,317 @@ def test_get_period_status_reflects_new_completed_reconciliation_semantics(db, t
     )
     assert status2["completed"] == 1
     assert status2["is_complete"] == (total == 1)
+
+
+# --- gaps ------------------------------------------------------------------
+
+
+def test_start_reconciliation_nonexistent_account_rejected(db, test_user):
+    with pytest.raises(ReconciliationError, match="not found or inactive"):
+        reconciliation_service.start_reconciliation(db, 999999, date(2026, 1, 31), D("0"), test_user)
+
+
+def test_start_reconciliation_inactive_account_rejected(db, test_user):
+    from app.services import account_service
+
+    account = account_service.create_account(db, "RC-INACTIVE", "Inactive Cash", "asset", is_cash_account=True)
+    account_service.set_active(db, account, False)
+    with pytest.raises(ReconciliationError, match="not found or inactive"):
+        reconciliation_service.start_reconciliation(db, account.id, date(2026, 1, 31), D("0"), test_user)
+
+
+def test_list_reconcilable_accounts_only_active_cash_ordered_by_code(db):
+    from app.services import account_service
+
+    account_service.create_account(db, "RC-NONCASH", "Not cash", "asset")
+    inactive = account_service.create_account(db, "RC-INACTIVECASH", "Inactive cash", "asset", is_cash_account=True)
+    account_service.set_active(db, inactive, False)
+
+    accounts = reconciliation_service.list_reconcilable_accounts(db)
+    codes = [a.code for a in accounts]
+    assert codes == sorted(codes)
+    assert "RC-NONCASH" not in codes
+    assert "RC-INACTIVECASH" not in codes
+    assert "1020" in codes  # seeded default cash account
+
+
+def test_get_clearable_lines_excludes_line_locked_into_a_different_reconciliation(db, test_user):
+    account = _account(db, "1020")
+    entry = _post(db, date(2026, 1, 5), "1020", "4000", D("500.00"), cash_is_debit=True)
+    recon1, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("500.00"), test_user
+    )
+    line = next(l for l in entry.lines if l.account_id == account.id)
+    reconciliation_service.toggle_line_cleared(db, recon1, line.id, True)
+    reconciliation_service.complete_reconciliation(db, recon1, test_user)
+
+    recon2, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 2, 28), D("500.00"), test_user
+    )
+    clearable_ids = {l.id for l in reconciliation_service.get_clearable_lines(db, recon2)}
+    assert line.id not in clearable_ids  # locked into recon1, not recon2
+
+
+def test_toggle_line_cleared_success_marks_cleared_and_uncleared(db, test_user):
+    account = _account(db, "1020")
+    entry = _post(db, date(2026, 1, 5), "1020", "4000", D("500.00"), cash_is_debit=True)
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("500.00"), test_user
+    )
+    line = next(l for l in entry.lines if l.account_id == account.id)
+
+    cleared = reconciliation_service.toggle_line_cleared(db, recon, line.id, True)
+    assert cleared.cleared_status == "cleared"
+
+    uncleared = reconciliation_service.toggle_line_cleared(db, recon, line.id, False)
+    assert uncleared.cleared_status == "uncleared"
+
+
+def test_toggle_line_cleared_rejects_when_not_in_progress(db, test_user):
+    account = _account(db, "1020")
+    entry = _post(db, date(2026, 1, 5), "1020", "4000", D("500.00"), cash_is_debit=True)
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("500.00"), test_user
+    )
+    line = next(l for l in entry.lines if l.account_id == account.id)
+    reconciliation_service.toggle_line_cleared(db, recon, line.id, True)
+    reconciliation_service.complete_reconciliation(db, recon, test_user)
+
+    with pytest.raises(ReconciliationError, match="in-progress"):
+        reconciliation_service.toggle_line_cleared(db, recon, line.id, False)
+
+
+def test_toggle_line_cleared_rejects_nonexistent_line(db, test_user):
+    account = _account(db, "1020")
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("0"), test_user
+    )
+    with pytest.raises(ReconciliationError, match="not found"):
+        reconciliation_service.toggle_line_cleared(db, recon, 999999, True)
+
+
+def test_toggle_line_cleared_rejects_line_for_a_different_account(db, test_user):
+    account = _account(db, "1020")
+    other_account = _account(db, "1000")
+    entry = _post(db, date(2026, 1, 5), "1000", "4000", D("100.00"), cash_is_debit=True)
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("0"), test_user
+    )
+    other_line = next(l for l in entry.lines if l.account_id == other_account.id)
+    with pytest.raises(ReconciliationError, match="not found"):
+        reconciliation_service.toggle_line_cleared(db, recon, other_line.id, True)
+
+
+def test_toggle_line_cleared_rejects_line_dated_after_statement_date(db, test_user):
+    account = _account(db, "1020")
+    entry = _post(db, date(2026, 2, 5), "1020", "4000", D("100.00"), cash_is_debit=True)
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("0"), test_user
+    )
+    line = next(l for l in entry.lines if l.account_id == account.id)
+    with pytest.raises(ReconciliationError, match="after the statement date"):
+        reconciliation_service.toggle_line_cleared(db, recon, line.id, True)
+
+
+def test_add_missing_transaction_rejects_invalid_movement(db, test_user):
+    account = _account(db, "1020")
+    fee_account = _account(db, "5100")
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("0"), test_user
+    )
+    with pytest.raises(ReconciliationError, match="Movement must be one of"):
+        reconciliation_service.add_missing_transaction(
+            db,
+            recon,
+            counter_account_id=fee_account.id,
+            amount=D("10"),
+            movement="bogus",
+            entry_date=date(2026, 1, 20),
+            memo="x",
+            user=test_user,
+        )
+
+
+def test_add_missing_transaction_rejects_zero_or_negative_amount(db, test_user):
+    account = _account(db, "1020")
+    fee_account = _account(db, "5100")
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("0"), test_user
+    )
+    with pytest.raises(ReconciliationError, match="greater than zero"):
+        reconciliation_service.add_missing_transaction(
+            db,
+            recon,
+            counter_account_id=fee_account.id,
+            amount=D("0"),
+            movement="withdrawal",
+            entry_date=date(2026, 1, 20),
+            memo="x",
+            user=test_user,
+        )
+    with pytest.raises(ReconciliationError, match="greater than zero"):
+        reconciliation_service.add_missing_transaction(
+            db,
+            recon,
+            counter_account_id=fee_account.id,
+            amount=D("-5"),
+            movement="withdrawal",
+            entry_date=date(2026, 1, 20),
+            memo="x",
+            user=test_user,
+        )
+
+
+def test_add_missing_transaction_rejects_counter_account_same_as_reconciliation_account(db, test_user):
+    account = _account(db, "1020")
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("0"), test_user
+    )
+    with pytest.raises(ReconciliationError, match="different account"):
+        reconciliation_service.add_missing_transaction(
+            db,
+            recon,
+            counter_account_id=account.id,
+            amount=D("10"),
+            movement="withdrawal",
+            entry_date=date(2026, 1, 20),
+            memo="x",
+            user=test_user,
+        )
+
+
+def test_add_missing_transaction_deposit_debits_the_reconciled_account(db, test_user):
+    account = _account(db, "1020")  # asset, normal_balance=debit
+    revenue = _account(db, "4000")
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("25.00"), test_user
+    )
+    entry = reconciliation_service.add_missing_transaction(
+        db,
+        recon,
+        counter_account_id=revenue.id,
+        amount=D("25.00"),
+        movement="deposit",
+        entry_date=date(2026, 1, 20),
+        memo="Interest",
+        user=test_user,
+    )
+    account_line = next(l for l in entry.lines if l.account_id == account.id)
+    assert account_line.debit_amount == D("25.00")
+    assert account_line.credit_amount == D("0")
+
+    diff = reconciliation_service.compute_difference(db, recon)
+    assert diff["is_balanced"]
+
+
+def test_complete_reconciliation_rejects_when_not_in_progress(db, test_user):
+    account = _account(db, "1020")
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("0"), test_user
+    )
+    reconciliation_service.complete_reconciliation(db, recon, test_user)
+    with pytest.raises(ReconciliationError, match="in-progress"):
+        reconciliation_service.complete_reconciliation(db, recon, test_user)
+
+
+def test_compute_difference_negative_when_short(db, test_user):
+    account = _account(db, "1020")
+    _post(db, date(2026, 1, 5), "1020", "4000", D("500.00"), cash_is_debit=True)
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("600.00"), test_user
+    )
+    diff = reconciliation_service.compute_difference(db, recon)
+    assert diff["cleared_total"] == D("0")  # nothing toggled cleared yet
+    assert diff["ending_balance_computed"] == D("0")
+    assert diff["difference"] == D("0") - D("600.00")
+    assert diff["is_balanced"] is False
+
+
+def test_get_history_ordered_by_statement_date_desc(db, test_user):
+    account = _account(db, "1020")
+    recon1, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 31), D("0"), test_user
+    )
+    reconciliation_service.complete_reconciliation(db, recon1, test_user)
+    recon2, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 2, 28), D("0"), test_user
+    )
+    reconciliation_service.complete_reconciliation(db, recon2, test_user)
+
+    history = reconciliation_service.get_history(db, account.id)
+    assert [r.id for r in history] == [recon2.id, recon1.id]
+
+
+def test_get_period_status_zero_accounts_not_complete(db):
+    from app.services import account_service
+
+    active = reconciliation_service.list_reconcilable_accounts(db)
+    for account in active:
+        account_service.set_active(db, account, False)
+    try:
+        status = reconciliation_service.get_period_status(db, "monthly", date(2026, 1, 1), date(2026, 1, 31))
+        assert status == {"completed": 0, "total": 0, "is_complete": False}
+    finally:
+        for account in active:
+            account_service.set_active(db, account, True)
+
+
+def test_get_period_status_reconciliation_before_period_end_does_not_count(db, test_user):
+    account = _account(db, "1020")
+    recon, _ = reconciliation_service.start_reconciliation(
+        db, account.id, date(2026, 1, 15), D("0"), test_user
+    )
+    reconciliation_service.complete_reconciliation(db, recon, test_user)
+    # statement_date (Jan 15) is before period_end (Jan 31) -> doesn't cover the period.
+    status = reconciliation_service.get_period_status(db, "monthly", date(2026, 1, 1), date(2026, 1, 31))
+    assert status["completed"] == 0
+
+
+# --- get_activity_range / list_periods (still used by reports_controller) ---
+
+
+def test_activity_range_no_entries_returns_today_today(db):
+    from datetime import date as date_cls
+
+    from app.models.journal_entry import JournalEntry
+
+    assert db.query(JournalEntry).count() == 0
+    earliest, latest = reconciliation_service.get_activity_range(db)
+    today = date_cls.today()
+    assert earliest == today
+    assert latest == today
+
+
+def test_activity_range_past_entries_latest_clamped_to_today(db):
+    from datetime import date as date_cls
+
+    _post(db, date(2020, 1, 1), "1020", "4000", D("10"), cash_is_debit=True)
+    earliest, latest = reconciliation_service.get_activity_range(db)
+    assert earliest == date(2020, 1, 1)
+    assert latest == date_cls.today()
+
+
+def test_activity_range_future_entry_not_clamped_down(db):
+    from datetime import date as date_cls
+    from datetime import timedelta
+
+    future_date = date_cls.today() + timedelta(days=30)
+    _post(db, future_date, "1020", "4000", D("10"), cash_is_debit=True)
+    _earliest, latest = reconciliation_service.get_activity_range(db)
+    assert latest == future_date
+
+
+def test_list_periods_excludes_current_open_month(db):
+    from datetime import date as date_cls
+
+    today = date_cls.today()
+    _post(db, today, "1020", "4000", D("10"), cash_is_debit=True)
+    from app.utils import periods as period_utils
+
+    current_month = period_utils.month_bounds(today)
+    periods = reconciliation_service.list_periods(db, "monthly")
+    assert current_month not in periods
+
+
+def test_list_periods_no_activity_returns_empty(db):
+    assert reconciliation_service.list_periods(db, "monthly") == []
