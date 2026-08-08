@@ -111,7 +111,7 @@
     <div class="grid grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium mb-1">Accounts Receivable <span class="text-destructive">*</span></label>
-        <select name="ar_account_id" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <select name="ar_account_id" class="w-full rounded-md border border-input bg-popover text-popover-foreground px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <option value=""></option>
           {% for account in accounts %}
           <option value="{{ account.id }}" {% if settings.ar_account_id == account.id %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
@@ -120,7 +120,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Service Revenue <span class="text-destructive">*</span></label>
-        <select name="service_revenue_account_id" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <select name="service_revenue_account_id" class="w-full rounded-md border border-input bg-popover text-popover-foreground px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <option value=""></option>
           {% for account in accounts %}
           <option value="{{ account.id }}" {% if settings.service_revenue_account_id == account.id %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
@@ -129,7 +129,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Tax Payable <span class="text-destructive">*</span></label>
-        <select name="tax_payable_account_id" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <select name="tax_payable_account_id" class="w-full rounded-md border border-input bg-popover text-popover-foreground px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <option value=""></option>
           {% for account in accounts %}
           <option value="{{ account.id }}" {% if settings.tax_payable_account_id == account.id %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
@@ -138,7 +138,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Unearned Revenue <span class="text-destructive">*</span></label>
-        <select name="unearned_revenue_account_id" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <select name="unearned_revenue_account_id" class="w-full rounded-md border border-input bg-popover text-popover-foreground px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <option value=""></option>
           {% for account in accounts %}
           <option value="{{ account.id }}" {% if settings.unearned_revenue_account_id == account.id %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
@@ -147,7 +147,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Sales Discounts (optional)</label>
-        <select name="sales_discounts_account_id" class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <select name="sales_discounts_account_id" class="w-full rounded-md border border-input bg-popover text-popover-foreground px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <option value=""></option>
           {% for account in accounts %}
           <option value="{{ account.id }}" {% if settings.sales_discounts_account_id == account.id %}selected{% endif %}>{{ account.code }} — {{ account.name }}</option>
