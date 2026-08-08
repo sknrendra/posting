@@ -24,6 +24,14 @@
 
 /* shadcn/ui "Neutral" theme tokens, dark mode only (this app has no light/dark toggle). */
 :root {
+  /* Tells the browser to use its dark UA chrome for native form controls
+     (select option popups, scrollbars, date pickers, etc). Belt-and-braces
+     alongside bg-popover/text-popover-foreground on <select> elements —
+     without an explicit background on the select, some engines render its
+     native option popup with the OS/browser's light default chrome while
+     our light (dark-theme) text color still applies, making the options
+     unreadable. */
+  color-scheme: dark;
   --radius: 0.65rem;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

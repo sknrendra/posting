@@ -38,7 +38,7 @@
       <template x-for="(row, index) in rows" :key="index">
         <tr class="border-b border-border">
           <td class="px-3 py-2">
-            <select class="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" :name="'account_id'" x-model="row.account_id">
+            <select class="w-full rounded-md border border-input bg-popover text-popover-foreground px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" :name="'account_id'" x-model="row.account_id">
               <option value=""></option>
               {% for account in accounts %}
               <option value="{{ account.id }}">{{ account.code }} — {{ account.name }}</option>
